@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { rilevaSupportoXR, creaPulsanteXR } from 'comune/xr-supporto.js';
 import { GestoreControllerXR, ControlliDesktop } from 'comune/controller.js';
 import { PannelloTesto } from 'comune/pannello.js';
+import { creaVisualiInput } from 'comune/mani.js';
 import { Pulsante3D, premi } from 'comune/menu.js';
 import { ModuloMolecole } from './molecole.js';
 import { ModuloTavola } from './tavola.js';
@@ -63,9 +64,15 @@ function pulsante(testo, w, h, pos, azione, gruppo, inclina = 0) {
 
 // Gruppo "menu": schermata iniziale in VR
 const gruppoMenu = new THREE.Group(); scena.add(gruppoMenu);
-const titolo = new PannelloTesto(1.0, 0.3, 1024);
-titolo.imposta([{ testo: 'Scienze VR', dimensione: 96, grassetto: true }, { testo: 'Scegli un\'attività (puntando e premendo il grilletto)', dimensione: 40, colore: '#9ecbff' }]);
-titolo.mesh.position.set(0, 1.85, -1.1); gruppoMenu.add(titolo.mesh);
+const titolo = new PannelloTesto(1.0, 0.5, 1024);
+titolo.imposta([
+  { testo: 'Scienze VR', dimensione: 84, grassetto: true },
+  { testo: 'Grilletto: premi un pulsante, prendi un atomo o un pezzo', dimensione: 34, colore: '#9ecbff' },
+  { testo: 'Presa laterale: prendi la molecola intera, l\'elica o una scheda', dimensione: 34, colore: '#9ecbff' },
+  { testo: 'Levetta: avvicina/allontana (su-giù) e ruota (destra-sinistra)', dimensione: 34, colore: '#9ecbff' },
+  { testo: 'Tasto A/B (X/Y): ricentra la vista. Due mani: ruoti e ingrandisci', dimensione: 34, colore: '#9ecbff' },
+]);
+titolo.mesh.position.set(0, 1.95, -1.1); gruppoMenu.add(titolo.mesh);
 pulsante('1  Costruisci la molecola', 0.7, 0.16, new THREE.Vector3(0, 1.55, -1.0), () => apriMolecole('H2O'), gruppoMenu);
 pulsante('2  Tavola periodica', 0.7, 0.16, new THREE.Vector3(0, 1.35, -1.0), () => apriTavola(), gruppoMenu);
 pulsante('3  DNA', 0.7, 0.16, new THREE.Vector3(0, 1.15, -1.0), () => apriDna(), gruppoMenu);
@@ -79,11 +86,13 @@ Object.keys(molecoleNote).filter((k) => !k.startsWith('_')).forEach((formula, i)
     new THREE.Vector3(-0.45 + i * 0.22, 0.85, -0.55), () => apriMolecole(formula), gruppoMol, -0.6);
 });
 pulsante('Ricomincia', 0.28, 0.12, new THREE.Vector3(0.5, 0.85, -0.55), () => modulo.avvia(null), gruppoMol, -0.6);
+pulsante('Ricentra', 0.24, 0.12, new THREE.Vector3(-0.78, 0.85, -0.55), () => controller.richiediRicentra(), gruppoMol, -0.6);
 pulsante('Menu', 0.2, 0.12, new THREE.Vector3(0.78, 0.85, -0.55), () => apriMenu(), gruppoMol, -0.6);
 
 // Pulsante "Menu" anche nella tavola periodica
 const gruppoTav = new THREE.Group(); scena.add(gruppoTav);
 pulsante('Menu', 0.2, 0.12, new THREE.Vector3(0.78, 0.85, -0.55), () => apriMenu(), gruppoTav, -0.6);
+pulsante('Ricentra', 0.24, 0.12, new THREE.Vector3(0.5, 0.85, -0.55), () => controller.richiediRicentra(), gruppoTav, -0.6);
 tavola.celle.forEach((c) => tutti.push(c));   // anche le caselle si premono col raggio
 
 // Gruppo "DNA": pannello e pulsanti
@@ -91,6 +100,7 @@ const gruppoDna = new THREE.Group(); scena.add(gruppoDna);
 gruppoDna.add(pannelloDna.mesh);
 pulsante('Nuova sequenza', 0.36, 0.12, new THREE.Vector3(0.45, 0.65, -0.5), () => dna.avvia(), gruppoDna, -0.6);
 pulsante('Menu', 0.2, 0.12, new THREE.Vector3(0.78, 0.65, -0.5), () => apriMenu(), gruppoDna, -0.6);
+pulsante('Ricentra', 0.24, 0.12, new THREE.Vector3(0.1, 0.65, -0.5), () => controller.richiediRicentra(), gruppoDna, -0.6);
 
 function apriDna() {
   gruppoMenu.visible = false; gruppoMol.visible = false; gruppoTav.visible = false; gruppoDna.visible = true;
@@ -126,10 +136,29 @@ const alAfferra = (o) => (dna.pezzi.includes(o) ? dna.alAfferra(o) : modulo.alAf
 const alRilascio = (o) => (dna.pezzi.includes(o) ? dna.alRilascio(o) : modulo.alRilascio(o));
 const alPremi = (mesh) => premi(mesh);
 
+// --- Oggetti grandi spostabili con la presa laterale: schede e blocchi (molecola, elica) ---
+const dentro = (o, radice) => { for (let x = o; x; x = x.parent) if (x === radice) return true; return false; };
+const schede = [pannello.mesh, pannelloDna.mesh, tavola.pannello.mesh];
+// Posizione iniziale delle schede, per poterle riportare al loro posto
+const posizioniSchede = schede.map((m) => ({ m, p: m.position.clone(), r: m.rotation.clone(), s: m.scale.clone() }));
+function riportaOggetti() {
+  for (const { m, p, r, s } of posizioniSchede) { m.position.copy(p); m.rotation.copy(r); m.scale.copy(s); }
+  dna.riportaElica();
+}
+function bloccoDi(colpito) {
+  const molecola = modulo.blocco(colpito); if (molecola) return molecola;
+  const elica = dna.blocco(colpito); if (elica) return elica;
+  const scheda = schede.find((m) => dentro(colpito, m));
+  return scheda ? { oggetto: scheda, scalabile: true } : null;
+}
+
 // --- Ingressi: controller del visore + mouse su desktop ---
+const visuali = creaVisualiInput(renderer, scena);     // modelli dei controller / mani in VR
 const controller = new GestoreControllerXR(renderer, scena, afferrabili, {
   onAfferra: alAfferra, onRilascia: alRilascio,
   premibili: () => tutti, onPremi: alPremi,
+  grandi: () => [...schede, dna.helice], blocco: bloccoDi,
+  onRicentra: riportaOggetti,
 });
 vistaDesktop = new ControlliDesktop(renderer.domElement, camera, scena, afferrabili, {
   onAfferra: alAfferra, onRilascia: alRilascio,
@@ -142,11 +171,12 @@ vistaDesktop = new ControlliDesktop(renderer.domElement, camera, scena, afferrab
 const supporto = await rilevaSupportoXR();
 if (supporto.vr) {
   document.getElementById('pulsanti').prepend(creaPulsanteXR(renderer, 'immersive-vr', {
+    onInizio: () => controller.richiediRicentra(),   // all'ingresso in VR: vista centrata e all'altezza giusta
     onFine: () => controller.rilasciaTutto(),
   }));
 }
 
-renderer.setAnimationLoop((t) => { controller.aggiorna(); modulo.aggiorna(); tavola.aggiorna(t / 1000); dna.aggiorna(t / 1000); renderer.render(scena, camera); });
+renderer.setAnimationLoop((t, frame) => { controller.aggiorna(frame); visuali.aggiorna(); modulo.aggiorna(); tavola.aggiorna(t / 1000); dna.aggiorna(t / 1000); renderer.render(scena, camera); });
 addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);

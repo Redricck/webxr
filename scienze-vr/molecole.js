@@ -51,8 +51,8 @@ export class ModuloMolecole {
   }
 
   pulisci() {
-    for (const l of this.legami) this.scena.remove(l.gruppo);
-    for (const a of this.atomi) this.scena.remove(a);
+    for (const l of this.legami) l.gruppo.parent?.remove(l.gruppo);   // parent: potrebbero essere dentro un blocco tenuto in mano
+    for (const a of this.atomi) a.parent?.remove(a);
     this.atomi = []; this.legami = []; this.ultimo = null; this.avviso = null;
   }
 
@@ -86,6 +86,35 @@ export class ModuloMolecole {
     x.fillText(testo, 64, 70);
     const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
     return t;
+  }
+
+  /**
+   * Blocco "molecola intera" per la presa laterale: se la parte colpita e' un atomo legato (o un legame),
+   * restituisce un gruppo temporaneo con tutta la molecola. Gli atomi non legati si afferrano da soli (null).
+   */
+  blocco(colpito) {
+    let atomo = null;
+    for (let o = colpito; o && !atomo; o = o.parent) {
+      if (this.atomi.includes(o)) atomo = o;
+      else { const l = this.legami.find((x) => x.gruppo === o); if (l) atomo = l.a; }
+    }
+    if (!atomo) return null;
+    const molecola = this.molecolaDi(atomo);
+    if (molecola.length < 2) return null;
+    const centro = molecola.reduce((s, a) => s.add(a.getWorldPosition(new THREE.Vector3())), new THREE.Vector3()).divideScalar(molecola.length);
+    const tenuta = new THREE.Group();
+    tenuta.position.copy(centro);
+    this.scena.add(tenuta);
+    for (const a of molecola) tenuta.attach(a);
+    for (const l of this.legami) if (molecola.includes(l.a)) tenuta.attach(l.gruppo);
+    return {
+      oggetto: tenuta, scalabile: false,
+      fine: () => {   // ridà atomi e legami alla scena (solo quelli ancora esistenti) e toglie il gruppo
+        for (const f of [...tenuta.children]) this.scena.attach(f);
+        this.scena.remove(tenuta);
+        this.aggiornaPannello();
+      },
+    };
   }
 
   // ---------- Legami ----------

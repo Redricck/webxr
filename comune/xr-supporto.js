@@ -1,4 +1,5 @@
-// Rilevamento del supporto WebXR e pulsante "Entra in VR/AR". Condiviso da tutte le app.
+// Rilevamento del supporto WebXR, pulsante "Entra in VR/AR" e ricentramento della vista. Condiviso da tutte le app.
+import * as THREE from 'three';
 
 /**
  * Chiede al browser cosa supporta. Non lancia mai errori: restituisce sempre un oggetto
@@ -48,4 +49,26 @@ export function creaPulsanteXR(renderer, modo, opzioni = {}) {
     }
   });
   return pulsante;
+}
+
+/**
+ * Ricentra la vista: porta lo studente al centro della scena, rivolto verso la scena (-z), e alla giusta altezza.
+ * Serve quando si e' seduti (testa piu' in basso) o ci si e' spostati/girati. Se la testa e' piu' bassa di
+ * `altezzaMinima` la si "alza" a quell'altezza (cosi' gli oggetti, pensati per occhi a 1,5-1,6 m, restano comodi).
+ * Va chiamata con il `frame` XR corrente. Restituisce true se ha funzionato.
+ */
+export function ricentraVista(renderer, frame, altezzaMinima = 1.5) {
+  const rif = renderer.xr.getReferenceSpace();
+  if (!rif || !frame) return false;
+  const posa = frame.getViewerPose(rif);
+  if (!posa) return false;
+  const p = posa.transform.position, o = posa.transform.orientation;
+  // Direzione orizzontale in cui guarda la testa (se guarda in giu' il piu' possibile, si tiene l'orientamento attuale)
+  const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(new THREE.Quaternion(o.x, o.y, o.z, o.w));
+  const piatta = Math.hypot(dir.x, dir.z);
+  const yaw = piatta > 0.3 ? Math.atan2(-dir.x, -dir.z) : 0;
+  const altezza = Math.max(p.y, altezzaMinima);
+  const T = new XRRigidTransform({ x: p.x, y: p.y - altezza, z: p.z }, { x: 0, y: Math.sin(yaw / 2), z: 0, w: Math.cos(yaw / 2) });
+  renderer.xr.setReferenceSpace(rif.getOffsetReferenceSpace(T));
+  return true;
 }

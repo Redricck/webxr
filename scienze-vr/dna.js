@@ -25,6 +25,7 @@ export class ModuloDna {
     this.helice = new THREE.Group();                           // contiene la parte fissa (e i pezzi agganciati)
     this.helice.position.set(0, 1.2, -0.95);
     this.helice.visible = false;
+    this.tenuta = false;               // true mentre l'elica e' in mano a un controller (non deve ruotare da sola)
     scena.add(this.helice);
     this.pezzi = [];                    // pezzi afferrabili (figli della scena o dell'elica)
     this.slot = [];
@@ -41,7 +42,7 @@ export class ModuloDna {
   /** Nuovo gioco: sequenza casuale di N basi e pezzi complementari mescolati sul vassoio. */
   avvia() {
     this.pulisci();
-    this.helice.visible = true; this.helice.rotation.y = 0;
+    this.riportaElica(); this.helice.visible = true;
     const lettere = Object.keys(this.basi);
     this.sequenza = Array.from({ length: N }, () => lettere[Math.floor(Math.random() * 4)]);
 
@@ -77,6 +78,22 @@ export class ModuloDna {
       this.pezzi.push(pezzo);
     });
     this.aggiornaPannello();
+  }
+
+  /** Rimette l'elica nella posizione iniziale (comando di ricentramento o nuova sequenza). */
+  riportaElica() {
+    if (this.helice.parent === this.scena) {
+      this.helice.position.set(0, 1.2, -0.95); this.helice.rotation.set(0, 0, 0); this.helice.scale.setScalar(1);
+    }
+  }
+
+  /** Blocco "elica" per la presa laterale: tutto il filamento con i pezzi agganciati. */
+  blocco(colpito) {
+    if (!this.helice.visible) return null;
+    for (let o = colpito; o; o = o.parent) {
+      if (o === this.helice) return { oggetto: this.helice, scalabile: false, fine: () => { this.tenuta = false; }, inizio: () => { this.tenuta = true; } };
+    }
+    return null;
   }
 
   pulisci() {
@@ -235,6 +252,6 @@ export class ModuloDna {
 
   /** Da chiamare a ogni fotogramma: a elica completa, la fa girare lentamente. t in secondi. */
   aggiorna(t) {
-    if (this.completa) this.helice.rotation.y = t * 0.5;
+    if (this.completa && !this.tenuta) this.helice.rotation.y = t * 0.5;
   }
 }

@@ -15,6 +15,14 @@ Segui `PUBBLICAZIONE.md`: alla fine avrai un indirizzo tipo `https://redricck.gi
    - **DNA:** appoggia ogni pezzo sulla base giusta (A-T, C-G). Per staccare un pezzo, riprendilo.
    - Pulsante **Menu** per tornare indietro.
 
+## Comandi nel visore
+- **Grilletto:** preme il pulsante puntato; prende l'atomo o il pezzo di DNA (anche da lontano: viene tirato davanti alla mano).
+- **Presa laterale:** prende il "blocco" puntato: la **molecola intera** (se ha dei legami), l'**elica del DNA** o una **scheda** di testo. Si possono avvicinare, allontanare e girare con la mano.
+- **Levetta:** con un oggetto in mano, su/giù lo allontana/avvicina, destra/sinistra lo ruota.
+- **Due mani:** prendi con entrambe lo stesso blocco: allargando le mani ingrandisci una scheda, girando le mani ruoti il blocco.
+- **Tasto A/B (X/Y) o pulsante "Ricentra":** ricentra la vista (utile da seduti o dopo essersi girati) e riporta schede ed elica al loro posto. Succede anche da solo all'ingresso in VR.
+- Si vedono i controller (o le mani, se usi l'hand tracking).
+
 ## 3. Cosa guardare e riferirmi
 - Il testo si legge bene? L'altezza di tavola e pannelli e' comoda?
 - Il raggio azzurro e la vibrazione ci sono? Riesci ad afferrare gli atomi piccoli (idrogeno)?

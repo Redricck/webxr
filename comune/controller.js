@@ -1,8 +1,14 @@
 // Gestione degli oggetti afferrabili, condivisa da tutte le app.
-//  - GestoreControllerXR: controller del visore (grilletto o presa per afferrare).
+//  - GestoreControllerXR: controller del visore. Comandi:
+//      GRILLETTO  = preme il pulsante puntato; afferra l'oggetto puntato (atomo, pezzo di DNA, scheda)
+//      PRESA LATERALE = afferra il "blocco" puntato: molecola intera, elica del DNA, scheda
+//      LEVETTA su/giu = avvicina/allontana l'oggetto tenuto; destra/sinistra = lo ruota
+//      DUE MANI sullo stesso blocco = lo ruotano (e lo ingrandiscono, se e' una scheda)
+//      TASTO A/B (X/Y) = ricentra la vista e riporta schede ed elica al loro posto
 //  - ControlliDesktop:   mouse (trascina oggetti, ruota/zoom la vista) per provare senza visore.
 // Le due classi usano le stesse funzioni di callback: onAfferra(oggetto) e onRilascia(oggetto).
 import * as THREE from 'three';
+import { ricentraVista } from './xr-supporto.js';
 
 /** Risale dal mesh colpito fino all'oggetto "afferrabile" registrato. */
 function radiceAfferrabile(oggetto, lista) {
@@ -15,25 +21,39 @@ function radiceAfferrabile(oggetto, lista) {
 export class GestoreControllerXR {
   /**
    * @param renderer, scena
-   * @param afferrabili  funzione che restituisce l'array degli oggetti afferrabili
-   *                     (devono essere figli diretti della scena)
-   * @param opzioni      { onAfferra, onRilascia, raggioPresa (m), distanzaRaggio (m) }
+   * @param afferrabili  funzione che restituisce l'array degli oggetti afferrabili "piccoli"
+   *                     (atomi, pezzi di DNA: figli della scena o di un gruppo)
+   * @param opzioni      {
+   *   onAfferra(o), onRilascia(o)   oggetti piccoli
+   *   premibili(): pulsanti 3D,  onPremi(mesh)
+   *   grandi(): oggetti grandi puntabili (schede, elica) per la presa del blocco
+   *   blocco(colpito): data una parte colpita, restituisce null oppure
+   *       { oggetto, scalabile, fine() }  = cosa spostare tenendo la presa laterale
+   *   onRicentra(): chiamata quando si preme il tasto di ricentramento
+   *   raggioPresa (m), distanzaRaggio (m) }
    */
   constructor(renderer, scena, afferrabili, opzioni = {}) {
+    this.renderer = renderer;
     this.scena = scena;
     this.afferrabili = afferrabili;
     this.onAfferra = opzioni.onAfferra || (() => {});
     this.onRilascia = opzioni.onRilascia || (() => {});
     this.premibili = opzioni.premibili || (() => []);   // pulsanti 3D: si premono puntandoli col raggio
     this.onPremi = opzioni.onPremi || (() => {});
+    this.grandi = opzioni.grandi || (() => []);
+    this.bloccoDi = opzioni.blocco || (() => null);
+    this.onRicentra = opzioni.onRicentra || (() => {});
     this.raggioPresa = opzioni.raggioPresa ?? 0.12;     // presa "a mano": oggetto vicino al controller
     this.distanzaRaggio = opzioni.distanzaRaggio ?? 3;  // presa "a distanza" col raggio
     this.raycaster = new THREE.Raycaster();
     this.controller = [];
+    this.dueMani = null;            // stato della presa con due mani
+    this.daRicentrare = false;      // se true, ricentra appena arriva il primo fotogramma
+    this.ultimoTempo = performance.now();
 
     for (let i = 0; i < 2; i++) {
       const c = renderer.xr.getController(i);
-      c.userData = { tenuto: null, sorgente: null, premuti: new Set(), linea: null, punta: null };
+      c.userData = { tenuto: null, blocco: null, sorgente: null, premuti: new Set(), linea: null, punta: null, tastoPrima: false };
       // Raggio visibile: linea sottile davanti al controller + puntino all'estremita'.
       const linea = new THREE.Line(
         new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -this.distanzaRaggio)]),
@@ -45,7 +65,6 @@ export class GestoreControllerXR {
       c.add(palla); // segna dove il raggio tocca un oggetto (si sposta, vedi aggiorna())
       c.userData.punta = palla;
       c.addEventListener('connected', (e) => { c.userData.sorgente = e.data; });
-      // Sia grilletto (select) sia presa (squeeze) afferrano: l'utente usa quello che preferisce.
       for (const tipo of ['select', 'squeeze']) {
         c.addEventListener(tipo + 'start', () => this._premuto(c, tipo));
         c.addEventListener(tipo + 'end', () => this._rilasciato(c, tipo));
@@ -55,77 +74,184 @@ export class GestoreControllerXR {
     }
   }
 
+  /** Chiede di ricentrare la vista al prossimo fotogramma (usato all'ingresso in VR). */
+  richiediRicentra() { this.daRicentrare = true; }
+
+  // ---------- Pressione e rilascio ----------
+
   _premuto(c, tipo) {
     c.userData.premuti.add(tipo);
     if (c.userData.tenuto) return;
-    if (tipo === 'select') {   // se il primo oggetto colpito dal raggio e' un pulsante, lo si preme
-      const colpo = this._primoColpo(c);
-      if (colpo && this.premibili().includes(colpo.object)) { this._vibra(c, 0.2, 25); this.onPremi(colpo.object); return; }
+
+    const colpo = this._primoColpo(c);
+    // 1) Grilletto su un pulsante: lo preme
+    if (tipo === 'select' && colpo && this.premibili().includes(colpo.object)) {
+      this._vibra(c, 0.2, 25); this.onPremi(colpo.object); return;
     }
-    const oggetto = this._trova(c);
-    if (!oggetto) return;
-    c.attach(oggetto); // attach conserva la posizione nel mondo
-    c.userData.tenuto = oggetto;
+    // 2) Un blocco gia' tenuto dall'altra mano: presa a due mani
+    const altro = this.controller.find((x) => x !== c && x.userData.blocco);
+    if (altro && colpo && this._dentro(colpo.object, altro.userData.blocco.oggetto)) { this._iniziaDueMani(altro, c); return; }
+
+    // 3) Cosa si e' toccato/puntato: prima oggetti piccoli vicini alla mano, poi quello che il raggio colpisce
+    const piccoli = this.afferrabili().filter((o) => !this.controller.includes(o.parent));
+    const vicino = this._piccoloVicino(c, piccoli);
+    const bersaglio = vicino || (colpo ? colpo.object : null);
+    if (!bersaglio) return;
+    const piccolo = vicino || radiceAfferrabile(bersaglio, piccoli);
+
+    // 4) Presa laterale (o oggetto grande puntato col grilletto): si prende il blocco, se esiste
+    if (tipo === 'squeeze' || !piccolo) {
+      const b = this.bloccoDi(bersaglio);
+      if (b) { this._afferraBlocco(c, b); return; }
+    }
+    // 5) Altrimenti oggetto piccolo singolo
+    if (!piccolo) return;
+    c.attach(piccolo); // attach conserva la posizione nel mondo
+    c.userData.tenuto = piccolo;
     // Presa a distanza (col raggio): l'oggetto viene "tirato" davanti alla mano, cosi' si muove con precisione
-    if (oggetto.position.length() > this.raggioPresa) oggetto.position.set(0, 0, -0.12);
+    if (piccolo.position.length() > this.raggioPresa) piccolo.position.set(0, 0, -0.12);
     this._vibra(c, 0.4, 40);
-    this.onAfferra(oggetto);
+    this.onAfferra(piccolo);
+  }
+
+  _afferraBlocco(c, b) {
+    const o = b.oggetto;
+    b.genitore = o.parent;
+    if (b.inizio) b.inizio();
+    c.attach(o);                 // l'oggetto grande resta dov'e' rispetto alla mano (niente "tirata")
+    c.userData.tenuto = o; c.userData.blocco = b;
+    this._vibra(c, 0.5, 60);
   }
 
   _rilasciato(c, tipo) {
     c.userData.premuti.delete(tipo);
     // Si lascia l'oggetto solo quando sono rilasciati sia grilletto sia presa.
     if (c.userData.premuti.size > 0 || !c.userData.tenuto) return;
-    const oggetto = c.userData.tenuto;
-    c.userData.tenuto = null;
+    const oggetto = c.userData.tenuto, b = c.userData.blocco;
+    c.userData.tenuto = null; c.userData.blocco = null;
+
+    if (this.dueMani && (this.dueMani.a === c || this.dueMani.b === c)) {   // finisce la presa a due mani
+      const resta = this.dueMani.a === c ? this.dueMani.b : this.dueMani.a;
+      this.dueMani = null;
+      resta.userData.tenuto = oggetto; resta.userData.blocco = b;
+      resta.attach(oggetto);            // continua con la mano che e' rimasta
+      return;
+    }
+    if (b) {                             // blocco: torna al suo genitore originale
+      b.genitore.attach(oggetto);
+      if (b.fine) b.fine();
+      return;
+    }
     this.scena.attach(oggetto);
     this.onRilascia(oggetto);
   }
 
-  /** Cerca prima l'oggetto piu' vicino alla mano, poi quello puntato col raggio. */
-  _trova(c) {
-    const lista = this.afferrabili();
+  // ---------- Due mani ----------
+
+  _iniziaDueMani(a, b) {
+    // a tiene gia' il blocco: lo stacca dalla mano e lo muove in base a entrambe
+    const o = a.userData.tenuto, blocco = a.userData.blocco;
+    this.scena.attach(o);
+    b.userData.tenuto = o; b.userData.blocco = blocco;
+    const pa = new THREE.Vector3().setFromMatrixPosition(a.matrixWorld);
+    const pb = new THREE.Vector3().setFromMatrixPosition(b.matrixWorld);
+    const v0 = pb.clone().sub(pa);
+    const med = pa.clone().add(pb).multiplyScalar(0.5);
+    this.dueMani = {
+      a, b, oggetto: o, blocco, v0, lung0: Math.max(v0.length(), 0.05),
+      scala0: o.scale.x, q0: o.quaternion.clone(),
+      scarto0: o.position.clone().sub(med),
+    };
+    this._vibra(b, 0.5, 60);
+  }
+
+  _aggiornaDueMani() {
+    const d = this.dueMani; if (!d) return;
+    const pa = new THREE.Vector3().setFromMatrixPosition(d.a.matrixWorld);
+    const pb = new THREE.Vector3().setFromMatrixPosition(d.b.matrixWorld);
+    const v = pb.clone().sub(pa);
+    const med = pa.clone().add(pb).multiplyScalar(0.5);
+    // Rotazione: quella che porta il vettore tra le mani iniziale su quello attuale
+    const dq = new THREE.Quaternion().setFromUnitVectors(d.v0.clone().normalize(), v.clone().normalize());
+    const k = d.blocco.scalabile ? THREE.MathUtils.clamp(v.length() / d.lung0, 0.3, 4) : 1;   // scala: solo schede
+    d.oggetto.quaternion.copy(dq).multiply(d.q0);
+    d.oggetto.scale.setScalar(d.scala0 * k);
+    d.oggetto.position.copy(med).add(d.scarto0.clone().multiplyScalar(k).applyQuaternion(dq));
+  }
+
+  // ---------- Ricerca di cosa si punta ----------
+
+  /** true se `o` e' `radice` o un suo discendente. */
+  _dentro(o, radice) { for (let x = o; x; x = x.parent) if (x === radice) return true; return false; }
+
+  _visibile(m) { for (let o = m; o; o = o.parent) if (!o.visible) return false; return true; }
+
+  /** Oggetto piccolo (atomo, pezzo) entro il raggio di presa dalla mano, o null. */
+  _piccoloVicino(c, lista) {
     const pos = new THREE.Vector3().setFromMatrixPosition(c.matrixWorld);
-    let migliore = null, dMin = this.raggioPresa;
     const p = new THREE.Vector3();
+    let migliore = null, dMin = this.raggioPresa;
     for (const o of lista) {
-      if (this.controller.includes(o.parent)) continue; // gia' in mano a un controller
       const d = o.getWorldPosition(p).distanceTo(pos);
       if (d < dMin) { dMin = d; migliore = o; }
     }
-    if (migliore) return migliore;
-    const m = new THREE.Matrix4().extractRotation(c.matrixWorld);
-    this.raycaster.ray.origin.copy(pos);
-    this.raycaster.ray.direction.set(0, 0, -1).applyMatrix4(m);
-    this.raycaster.far = this.distanzaRaggio;
-    const colpi = this.raycaster.intersectObjects(lista.filter((o) => !this.controller.includes(o.parent)), true);
-    return colpi.length ? radiceAfferrabile(colpi[0].object, lista) : null;
+    return migliore;
   }
 
   /**
-   * Primo oggetto colpito dal raggio del controller tra pulsanti visibili e oggetti afferrabili
+   * Primo oggetto colpito dal raggio del controller tra pulsanti visibili, oggetti piccoli e oggetti grandi
    * (null se non colpisce nulla entro distanzaRaggio). Restituisce { object, distance, point }.
    */
   _primoColpo(c) {
     c.updateWorldMatrix(true, false);
-    const visibile = (m) => { for (let o = m; o; o = o.parent) if (!o.visible) return false; return true; };
-    const bersagli = this.premibili().filter(visibile)
-      .concat(this.afferrabili().filter((o) => !this.controller.includes(o.parent) && visibile(o)));
+    const bersagli = this.premibili().filter((m) => this._visibile(m))
+      .concat(this.afferrabili().filter((o) => !this.controller.includes(o.parent) && this._visibile(o)))
+      .concat(this.grandi().filter((o) => this._visibile(o)));
     if (!bersagli.length) return null;
     this.raycaster.ray.origin.setFromMatrixPosition(c.matrixWorld);
     this.raycaster.ray.direction.set(0, 0, -1).transformDirection(c.matrixWorld);
     this.raycaster.far = this.distanzaRaggio;
-    const colpi = this.raycaster.intersectObjects(bersagli, true);
+    // Si ignorano i discendenti dell'oggetto che questa stessa mano sta tenendo
+    const colpi = this.raycaster.intersectObjects(bersagli, true).filter((h) => !c.userData.tenuto || !this._dentro(h.object, c.userData.tenuto));
     return colpi.length ? colpi[0] : null;
   }
 
+  // ---------- Ciclo di vita ----------
+
   /**
-   * Da chiamare a ogni fotogramma: accorcia il raggio fino al primo oggetto colpito, cosi' non
-   * attraversa pulsanti e oggetti. Il puntino si ferma sull'oggetto (giallo se si puo' premere/afferrare).
+   * Da chiamare a ogni fotogramma (con il `frame` XR): accorcia il raggio fino al primo oggetto colpito,
+   * muove gli oggetti tenuti con la levetta, gestisce il tasto di ricentramento e la presa a due mani.
    */
-  aggiorna() {
+  aggiorna(frame) {
+    const ora = performance.now(), dt = Math.min((ora - this.ultimoTempo) / 1000, 0.1);
+    this.ultimoTempo = ora;
+
+    if (this.daRicentrare && frame && this.renderer.xr.isPresenting) {
+      if (ricentraVista(this.renderer, frame)) { this.daRicentrare = false; this.onRicentra(); }
+    }
+    this._aggiornaDueMani();
+
     for (const c of this.controller) {
       const { linea, punta, tenuto } = c.userData;
+      const gp = c.userData.sorgente?.gamepad;
+
+      // Tasto A/B (X/Y): ricentra la vista
+      const premuto = !!(gp && (gp.buttons[4]?.pressed || gp.buttons[5]?.pressed));
+      if (premuto && !c.userData.tastoPrima && frame) { ricentraVista(this.renderer, frame); this.onRicentra(); }
+      c.userData.tastoPrima = premuto;
+
+      // Levetta: oggetto tenuto piu' vicino/lontano (su/giu) e ruotato (destra/sinistra)
+      if (tenuto && gp && !this.dueMani) {
+        const ax = gp.axes.length >= 4 ? gp.axes[2] : gp.axes[0] || 0;
+        const ay = gp.axes.length >= 4 ? gp.axes[3] : gp.axes[1] || 0;
+        if (Math.abs(ay) > 0.15) {                 // spingere in avanti = allontana
+          if (tenuto.position.lengthSq() < 1e-6) tenuto.position.set(0, 0, -0.1);
+          tenuto.position.setLength(THREE.MathUtils.clamp(tenuto.position.length() - ay * 1.0 * dt, 0.08, 4));
+        }
+        if (Math.abs(ax) > 0.15) this._ruotaVerticale(c, tenuto, -ax * 1.8 * dt);
+      }
+
+      // Raggio: si ferma sul primo oggetto colpito
       if (!c.visible) continue;
       let dist = this.distanzaRaggio, colpito = false;
       if (tenuto) dist = 0.05;                       // oggetto in mano: raggio cortissimo
@@ -140,6 +266,14 @@ export class GestoreControllerXR {
     }
   }
 
+  /** Ruota l'oggetto tenuto attorno all'asse verticale del mondo passante per il suo centro. */
+  _ruotaVerticale(c, o, angolo) {
+    const qc = new THREE.Quaternion(); c.getWorldQuaternion(qc);
+    const qo = new THREE.Quaternion(); o.getWorldQuaternion(qo);
+    const nuova = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), angolo).multiply(qo);
+    o.quaternion.copy(qc.invert().multiply(nuova));
+  }
+
   _vibra(c, intensita, ms) {
     const att = c.userData.sorgente?.gamepad?.hapticActuators?.[0];
     if (att && att.pulse) att.pulse(intensita, ms);
@@ -147,6 +281,7 @@ export class GestoreControllerXR {
 
   /** Se un controller tiene un oggetto durante la fine sessione, lo lascia. */
   rilasciaTutto() {
+    this.dueMani = null;
     for (const c of this.controller) { c.userData.premuti.clear(); if (c.userData.tenuto) this._rilasciato(c, 'x'); }
   }
 }

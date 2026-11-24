@@ -32,5 +32,8 @@ Progetto unico per le app didattiche XR (realtà virtuale/aumentata nel browser)
 - Nel modulo molecole il legame ha sempre l'ordine massimo possibile (C+O = doppio): lo studente non sceglie singolo/doppio.
 - Mai provato sul Pico 4: tutto verificato solo su desktop (Chromium).
 
+## Interazione in VR (comune/controller.js, comune/mani.js)
+Grilletto = pulsanti e oggetti piccoli; presa laterale = blocchi (molecola intera, elica DNA, schede); levetta = distanza/rotazione; due mani = ruota/scala; tasto A/B = ricentra (`ricentraVista` in `comune/xr-supporto.js`). Le app passano a `GestoreControllerXR` le opzioni `grandi` e `blocco`.
+
 ## Stato dei moduli di scienze-vr
 - `molecole.js` (modulo 1), `tavola.js` (modulo 2), `dna.js` (modulo 3), `main.js` (menu VR e collegamento). Pulsanti 3D in `comune/menu.js`.
