@@ -8,7 +8,7 @@ import { Audio } from 'comune/audio.js';
 import { Impostazioni } from 'comune/impostazioni.js';
 import { spostaVerticale } from 'comune/xr-supporto.js';
 // Numero di versione mostrato nel pannello Impostazioni: serve a capire se il visore ha caricato l'ultima pubblicazione
-const VERSIONE = 8;
+const VERSIONE = 9;
 import { Pulsante3D, premi } from 'comune/menu.js';
 import { ModuloMolecole } from './molecole.js';
 import { ModuloTavola } from './tavola.js';
@@ -121,10 +121,10 @@ audio.impostaAttivo(imp.get('audio')); audio.impostaVolumi(imp.get('volMusica'),
 const DISTANZE = { vicino: 0.5, normale: 0, lontano: -0.3 };   // metri di avvicinamento alla scena al ricentramento
 const gruppoImp = new THREE.Group(); scena.add(gruppoImp); gruppoImp.visible = false;
 const titoloImp = new PannelloTesto(0.5, 0.1, 512);
-titoloImp.imposta([{ testo: 'Impostazioni  (v. ' + VERSIONE + ')', dimensione: 50, grassetto: true }]);
+titoloImp.imposta([{ testo: 'Impostazioni', dimensione: 60, grassetto: true }]);
 titoloImp.mesh.position.set(0, 1.86, -0.8); gruppoImp.add(titoloImp.mesh);
-const statoMani = new PannelloTesto(0.5, 0.16, 512);       // diagnosi dell'hand tracking
-statoMani.mesh.position.set(0, 0.745, -0.8); gruppoImp.add(statoMani.mesh);
+const statoMani = new PannelloTesto(0.5, 0.22, 512);       // diagnosi dell'hand tracking
+statoMani.mesh.position.set(0, 0.74, -0.8); gruppoImp.add(statoMani.mesh);
 const rigaImp = (i) => 1.74 - i * 0.115;
 const Z_IMP = -0.8;
 const bImp = {};
@@ -163,8 +163,8 @@ pressImp('Ricentra ora', 0.24, -0.13, 7, () => controller.richiediRicentra());
 pressImp('Chiudi', 0.24, 0.13, 7, () => { gruppoImp.visible = false; });
 // Il pannello ruota/si sposta attorno al proprio centro (si puo' prendere con la presa laterale)
 // Sfondo scuro del pannello (si puo' afferrare ovunque con la presa laterale per spostarlo)
-const sfondoImp = new THREE.Mesh(new THREE.PlaneGeometry(0.58, 1.3), new THREE.MeshBasicMaterial({ color: 0x0b1220, transparent: true, opacity: 0.8 }));
-sfondoImp.position.set(0, 1.3, Z_IMP - 0.01); gruppoImp.add(sfondoImp);
+const sfondoImp = new THREE.Mesh(new THREE.PlaneGeometry(0.58, 1.42), new THREE.MeshBasicMaterial({ color: 0x0b1220, transparent: true, opacity: 0.8 }));
+sfondoImp.position.set(0, 1.26, Z_IMP - 0.01); gruppoImp.add(sfondoImp);
 // Il pannello si apre davanti allo sguardo (in VR un po' rimpicciolito), poi resta fermo e si puo' spostare
 const _cp = new THREE.Vector3(), _cq = new THREE.Quaternion(), _dir = new THREE.Vector3();
 function posizionaPannelloImp() {
@@ -172,29 +172,16 @@ function posizionaPannelloImp() {
   _dir.set(0, 0, -1).applyQuaternion(_cq); _dir.y = 0;
   if (_dir.lengthSq() < 1e-4) _dir.set(0, 0, -1);
   _dir.normalize();
-  const vr = renderer.xr.isPresenting, dist = vr ? 0.8 : 1.0;
-  gruppoImp.position.set(_cp.x + _dir.x * dist, _cp.y - 0.08, _cp.z + _dir.z * dist);
+  const vr = renderer.xr.isPresenting, dist = 1.0;
+  gruppoImp.position.set(_cp.x + _dir.x * dist, _cp.y - 0.05, _cp.z + _dir.z * dist);
   gruppoImp.rotation.set(0, Math.atan2(-_dir.x, -_dir.z), 0);
-  gruppoImp.scale.setScalar(vr ? 0.6 : 0.8);
+  gruppoImp.scale.setScalar(vr ? 1.0 : 0.8);   // in VR grande, per leggerlo bene
 }
 for (const f of gruppoImp.children) f.position.sub(new THREE.Vector3(0, 1.4, Z_IMP));
-// Rotellina: in VR resta sempre in alto a destra nel campo visivo (segue la testa con un leggero ritardo).
-// Su desktop c'e' il pulsante HTML in alto a destra (vedi index.html).
-const rotellina = new Pulsante3D('', 0.08, 0.08, () => { gruppoImp.visible = !gruppoImp.visible; if (gruppoImp.visible) posizionaPannelloImp(); }, 'ingranaggio');
+// Rotellina: ferma nello spazio, a destra vicino ai pulsanti Menu (in VR; su desktop c'e' il pulsante HTML in alto a destra)
+const rotellina = new Pulsante3D('', 0.14, 0.14, () => { gruppoImp.visible = !gruppoImp.visible; if (gruppoImp.visible) posizionaPannelloImp(); }, 'ingranaggio');
+rotellina.mesh.position.set(0.98, 0.78, -0.52); rotellina.mesh.rotation.x = -0.6;
 scena.add(rotellina.mesh); tutti.push(rotellina.mesh);
-rotellina.mesh.visible = false;
-const OFFSET_ROTELLINA = new THREE.Vector3(0.2, 0.15, -0.6);   // destra, su, davanti (m) rispetto agli occhi
-const _bersaglio = new THREE.Vector3();
-function aggiornaRotellina() {
-  const vr = renderer.xr.isPresenting;
-  if (!vr) { rotellina.mesh.visible = false; return; }
-  camera.getWorldPosition(_cp); camera.getWorldQuaternion(_cq);
-  _bersaglio.copy(OFFSET_ROTELLINA).applyQuaternion(_cq).add(_cp);
-  if (!rotellina.mesh.visible) rotellina.mesh.position.copy(_bersaglio);   // prima volta: subito al suo posto
-  rotellina.mesh.visible = true;
-  rotellina.mesh.position.lerp(_bersaglio, 0.12);                         // poi la insegue con dolcezza
-  rotellina.mesh.lookAt(_cp);                                               // sempre girata verso gli occhi
-}
 // Su desktop la stessa funzione e' nel pulsante in alto a destra (vedi index.html)
 document.getElementById('impostazioni')?.addEventListener('click', () => { gruppoImp.visible = !gruppoImp.visible; if (gruppoImp.visible) posizionaPannelloImp(); });
 
@@ -277,7 +264,10 @@ vistaDesktop = new ControlliDesktop(renderer.domElement, camera, scena, afferrab
 const supporto = await rilevaSupportoXR();
 if (supporto.vr) {
   document.getElementById('pulsanti').prepend(creaPulsanteXR(renderer, 'immersive-vr', {
-    onInizio: () => controller.richiediRicentra(),   // all'ingresso in VR: vista centrata e all'altezza giusta
+    onInizio: () => {   // all'ingresso in VR: vista centrata e all'altezza giusta; si ripete dopo che il tracciamento si e' assestato
+      controller.richiediRicentra();
+      for (const ms of [1200, 3000]) setTimeout(() => { if (renderer.xr.isPresenting && !controller.controller.some((c) => c.userData.tenuto)) controller.richiediRicentra(); }, ms);
+    },
     onFine: () => controller.rilasciaTutto(),
   }));
 }
@@ -286,17 +276,20 @@ if (supporto.vr) {
 let ultimoStatoMani = '';
 function aggiornaStatoMani() {
   const sess = renderer.xr.getSession && renderer.xr.getSession();
-  let testo = 'Mani: entra in VR per verificare';
-  if (sess) {
+  let righe;
+  if (!sess) righe = [['Entra in VR per', '#ffffff'], ['verificare le mani', '#ffffff'], ['Versione ' + VERSIONE, '#9ecbff']];
+  else {
     const concesso = sess.enabledFeatures ? sess.enabledFeatures.includes('hand-tracking') : null;
-    const n = visuali.stato.mani;
-    testo = concesso === false ? 'Hand tracking NON concesso dal browser'
-      : n > 0 ? `Mani viste: ${n} (giunti ${visuali.stato.giunti}). Pizzica per afferrare`
-      : 'Nessuna mano vista: spegni i controller e mostra le mani';
+    const src = [...sess.inputSources];
+    const nMani = src.filter((i) => i.hand).length, nCtrl = src.length - nMani;
+    righe = [[`Mani viste: ${nMani}  Controller: ${nCtrl}`, nMani ? '#7dff9b' : '#ffd37d'],
+             [concesso === false ? 'Hand tracking NON concesso' : 'Hand tracking: concesso', concesso === false ? '#ff8080' : '#ffffff'],
+             [nMani ? 'Pizzica per afferrare' : 'Spegni i controller', '#ffffff'], ['Versione ' + VERSIONE, '#9ecbff']];
   }
-  if (testo !== ultimoStatoMani) { ultimoStatoMani = testo; statoMani.imposta([{ testo, dimensione: 44, colore: '#ffffff' }]); }
+  const testo = righe.map((r) => r[0]).join('|');
+  if (testo !== ultimoStatoMani) { ultimoStatoMani = testo; statoMani.imposta(righe.map(([t, c]) => ({ testo: t, dimensione: 40, colore: c }))); }
 }
-renderer.setAnimationLoop((t, frame) => { aggiornaRotellina(); if (gruppoImp.visible) aggiornaStatoMani(); controller.aggiorna(frame); visuali.aggiorna(frame); modulo.aggiorna(); tavola.aggiorna(t / 1000); dna.aggiorna(t / 1000); renderer.render(scena, camera); });
+renderer.setAnimationLoop((t, frame) => { if (gruppoImp.visible) aggiornaStatoMani(); controller.aggiorna(frame); visuali.aggiorna(frame); modulo.aggiorna(); tavola.aggiorna(t / 1000); dna.aggiorna(t / 1000); renderer.render(scena, camera); });
 addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
