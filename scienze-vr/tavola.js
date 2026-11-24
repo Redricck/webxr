@@ -6,7 +6,7 @@ import { PannelloTesto } from 'comune/pannello.js';
 
 const PASSO = 0.105;          // distanza tra i centri delle caselle (m)
 const LATO = 0.098;           // lato della casella (m)
-const POS = new THREE.Vector3(0, 0, -1.9);   // la tavola sta davanti allo studente, a 1,9 m
+const POS = new THREE.Vector3(0, 0, -1.35);   // la tavola sta davanti allo studente, a 1,35 m
 
 // Colori per categoria (scelta grafica mia: tinte ben distinguibili)
 const COLORI = {
@@ -24,7 +24,7 @@ export class ModuloTavola {
     this.gruppo.visible = false;
     scena.add(this.gruppo);
     this.tabella = new THREE.Group();   // contiene le 118 caselle: si puo' afferrare e spostare tutta insieme
-    this.tabella.position.set(0, 1.9, POS.z);   // l'origine e' al centro della tavola: ruota e si ingrandisce attorno al suo centro
+    this.tabella.position.set(0, 1.85, POS.z);   // l'origine e' al centro della tavola: ruota e si ingrandisce attorno al suo centro
     this.gruppo.add(this.tabella);
     this.suoni = null;             // oggetto Audio (opzionale), assegnato dall'app
     this.celle = [];               // mesh delle caselle (sono i "premibili")
@@ -33,12 +33,12 @@ export class ModuloTavola {
 
     // Pannello informazioni: sta davanti alla tavola, a sinistra, cosi' il testo e' piu' vicino e leggibile
     this.pannello = new PannelloTesto(0.8, 0.55, 1024);
-    this.pannello.mesh.position.set(-0.45, 1.15, -1.2);
+    this.pannello.mesh.position.set(-0.45, 1.05, -0.95);
     this.gruppo.add(this.pannello.mesh);
 
     // Modello dell'atomo, a destra del pannello
     this.atomo = new THREE.Group();
-    this.atomo.position.set(0.5, 1.15, -1.2);
+    this.atomo.position.set(0.5, 1.05, -0.95);
     this.atomo.rotation.x = -0.35;
     this.gruppo.add(this.atomo);
     this.geoElettrone = new THREE.SphereGeometry(0.013, 10, 8);

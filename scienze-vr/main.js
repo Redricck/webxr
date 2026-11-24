@@ -5,6 +5,7 @@ import { GestoreControllerXR, ControlliDesktop } from 'comune/controller.js';
 import { PannelloTesto } from 'comune/pannello.js';
 import { creaVisualiInput } from 'comune/mani.js';
 import { Audio } from 'comune/audio.js';
+import { Impostazioni } from 'comune/impostazioni.js';
 import { Pulsante3D, premi } from 'comune/menu.js';
 import { ModuloMolecole } from './molecole.js';
 import { ModuloTavola } from './tavola.js';
@@ -68,19 +69,6 @@ function pulsante(testo, w, h, pos, azione, gruppo, inclina = 0) {
   return p;
 }
 
-// Pulsante "Audio" (musica ed effetti si accendono/spengono insieme): uno per gruppo, tutti sincronizzati
-const bottoniAudio = [];
-function aggiungiAudio(gruppo, pos, inclina) {
-  const p = pulsante('Audio: sì', 0.24, 0.12, pos, () => {
-    audio.sblocca();
-    const on = audio.alterna();
-    for (const b of bottoniAudio) b.imposta(on ? 'normale' : 'disattivo', on ? 'Audio: sì' : 'Audio: no');
-    if (on) audio.suono('click');
-  }, gruppo, inclina);
-  p.mesh.userData.nessunSuono = true;   // il suo suono lo gestisce lui
-  bottoniAudio.push(p);
-}
-
 // Gruppo "menu": schermata iniziale in VR
 const gruppoMenu = new THREE.Group(); scena.add(gruppoMenu);
 const titolo = new PannelloTesto(1.0, 0.5, 1024);
@@ -95,7 +83,6 @@ titolo.mesh.position.set(0, 1.95, -1.1); gruppoMenu.add(titolo.mesh);
 pulsante('1  Costruisci la molecola', 0.7, 0.16, new THREE.Vector3(0, 1.55, -1.0), () => apriMolecole('H2O'), gruppoMenu);
 pulsante('2  Tavola periodica', 0.7, 0.16, new THREE.Vector3(0, 1.35, -1.0), () => apriTavola(), gruppoMenu);
 pulsante('3  DNA', 0.7, 0.16, new THREE.Vector3(0, 1.15, -1.0), () => apriDna(), gruppoMenu);
-aggiungiAudio(gruppoMenu, new THREE.Vector3(0.55, 0.95, -1.0), 0);
 // Il gruppo menu ruota/si sposta attorno al proprio centro: origine al centro dei pulsanti
 gruppoMenu.position.set(0, 1.55, -1.05);
 for (const f of gruppoMenu.children) f.position.sub(gruppoMenu.position);
@@ -111,13 +98,11 @@ Object.keys(molecoleNote).filter((k) => !k.startsWith('_')).forEach((formula, i)
 pulsante('Ricomincia', 0.28, 0.12, new THREE.Vector3(0.5, 0.85, -0.55), () => modulo.avvia(null), gruppoMol, -0.6);
 pulsante('Ricentra', 0.24, 0.12, new THREE.Vector3(-0.78, 0.85, -0.55), () => controller.richiediRicentra(), gruppoMol, -0.6);
 pulsante('Menu', 0.2, 0.12, new THREE.Vector3(0.78, 0.85, -0.55), () => apriMenu(), gruppoMol, -0.6);
-aggiungiAudio(gruppoMol, new THREE.Vector3(1.04, 0.85, -0.55), -0.6);
 
 // Pulsante "Menu" anche nella tavola periodica
 const gruppoTav = new THREE.Group(); scena.add(gruppoTav);
 pulsante('Menu', 0.2, 0.12, new THREE.Vector3(0.78, 0.85, -0.55), () => apriMenu(), gruppoTav, -0.6);
 pulsante('Ricentra', 0.24, 0.12, new THREE.Vector3(0.5, 0.85, -0.55), () => controller.richiediRicentra(), gruppoTav, -0.6);
-aggiungiAudio(gruppoTav, new THREE.Vector3(0.22, 0.85, -0.55), -0.6);
 tavola.celle.forEach((c) => tutti.push(c));   // anche le caselle si premono col raggio
 
 // Gruppo "DNA": pannello e pulsanti
@@ -126,7 +111,54 @@ gruppoDna.add(pannelloDna.mesh);
 pulsante('Nuova sequenza', 0.36, 0.12, new THREE.Vector3(0.45, 0.65, -0.5), () => dna.avvia(), gruppoDna, -0.6);
 pulsante('Menu', 0.2, 0.12, new THREE.Vector3(0.78, 0.65, -0.5), () => apriMenu(), gruppoDna, -0.6);
 pulsante('Ricentra', 0.24, 0.12, new THREE.Vector3(0.1, 0.65, -0.5), () => controller.richiediRicentra(), gruppoDna, -0.6);
-aggiungiAudio(gruppoDna, new THREE.Vector3(-0.18, 0.65, -0.5), -0.6);
+
+// --- Impostazioni (rotellina sempre visibile): audio, volumi, posizione, distanza, mani ---
+const imp = new Impostazioni('scienze-vr-impostazioni', { audio: true, volMusica: 0.6, volEffetti: 0.8, seduto: true, distanza: 'normale', mani: true });
+audio.impostaAttivo(imp.get('audio')); audio.impostaVolumi(imp.get('volMusica'), imp.get('volEffetti'));
+const DISTANZE = { vicino: 0.5, normale: 0, lontano: -0.3 };   // metri di avvicinamento alla scena al ricentramento
+const gruppoImp = new THREE.Group(); scena.add(gruppoImp); gruppoImp.visible = false;
+const titoloImp = new PannelloTesto(0.5, 0.1, 512);
+titoloImp.imposta([{ testo: 'Impostazioni', dimensione: 56, grassetto: true }]);
+titoloImp.mesh.position.set(0, 1.86, -0.8); gruppoImp.add(titoloImp.mesh);
+const statoMani = new PannelloTesto(0.5, 0.1, 512);       // diagnosi dell'hand tracking
+statoMani.mesh.position.set(0, 0.9, -0.8); gruppoImp.add(statoMani.mesh);
+const rigaImp = (i) => 1.74 - i * 0.115;
+const Z_IMP = -0.8;
+const bImp = {};
+const pressImp = (testo, w, x, riga, azione) => pulsante(testo, w, 0.1, new THREE.Vector3(x, rigaImp(riga), Z_IMP), azione, gruppoImp);
+const pc = (v) => Math.round(v * 100) + '%';
+function aggiornaImp() {
+  const on = imp.get('audio');
+  bImp.audio.imposta(on ? 'normale' : 'spento', on ? 'Audio: sì' : 'Audio: no');
+  bImp.musica.imposta('disattivo', 'Musica ' + pc(imp.get('volMusica')));
+  bImp.effetti.imposta('disattivo', 'Effetti ' + pc(imp.get('volEffetti')));
+  bImp.posizione.imposta('normale', imp.get('seduto') ? 'Posizione: seduto' : 'Posizione: in piedi');
+  bImp.distanza.imposta('normale', 'Distanza: ' + imp.get('distanza'));
+  const m = imp.get('mani');
+  bImp.mani.imposta(m ? 'normale' : 'spento', m ? 'Mani: sì' : 'Mani: no');
+  audio.impostaAttivo(on); audio.impostaVolumi(imp.get('volMusica'), imp.get('volEffetti'));
+  controller.maniAttive = m;
+  controller.opzioniRicentra.altezzaMinima = imp.get('seduto') ? 1.5 : 0;   // in piedi: si tiene l'altezza reale
+  controller.opzioniRicentra.avanti = DISTANZE[imp.get('distanza')];
+}
+const cambiaVol = (nome, d) => { imp.imposta(nome, Math.min(1, Math.max(0, Math.round((imp.get(nome) + d) * 10) / 10))); aggiornaImp(); audio.suono('tick'); };
+bImp.audio = pressImp('Audio', 0.5, 0, 0, () => { audio.sblocca(); imp.imposta('audio', !imp.get('audio')); aggiornaImp(); audio.suono('click'); });
+pressImp('−', 0.1, -0.2, 1, () => cambiaVol('volMusica', -0.1)); bImp.musica = pressImp('Musica', 0.3, 0, 1, () => {}); pressImp('+', 0.1, 0.2, 1, () => cambiaVol('volMusica', 0.1));
+pressImp('−', 0.1, -0.2, 2, () => cambiaVol('volEffetti', -0.1)); bImp.effetti = pressImp('Effetti', 0.3, 0, 2, () => {}); pressImp('+', 0.1, 0.2, 2, () => cambiaVol('volEffetti', 0.1));
+bImp.posizione = pressImp('Posizione', 0.5, 0, 3, () => { imp.imposta('seduto', !imp.get('seduto')); aggiornaImp(); controller.richiediRicentra(); });
+bImp.distanza = pressImp('Distanza', 0.5, 0, 4, () => { const o = Object.keys(DISTANZE); imp.imposta('distanza', o[(o.indexOf(imp.get('distanza')) + 1) % o.length]); aggiornaImp(); controller.richiediRicentra(); });
+bImp.mani = pressImp('Mani', 0.5, 0, 5, () => { imp.imposta('mani', !imp.get('mani')); aggiornaImp(); });
+pressImp('Ricentra ora', 0.24, -0.13, 6, () => controller.richiediRicentra());
+pressImp('Chiudi', 0.24, 0.13, 6, () => { gruppoImp.visible = false; });
+// Il pannello ruota/si sposta attorno al proprio centro (si puo' prendere con la presa laterale)
+gruppoImp.position.set(0.95, 1.4, Z_IMP); gruppoImp.rotation.y = -0.6;   // a destra, girato verso chi guarda
+for (const f of gruppoImp.children) f.position.sub(new THREE.Vector3(0, 1.4, Z_IMP));
+// Rotellina sempre visibile (fuori dai gruppi dei moduli), accanto ai pulsanti in basso a sinistra
+const rotellina = new Pulsante3D('', 0.12, 0.12, () => { gruppoImp.visible = !gruppoImp.visible; }, 'ingranaggio');
+rotellina.mesh.position.set(-1.0, 0.85, -0.55); rotellina.mesh.rotation.x = -0.6;
+scena.add(rotellina.mesh); tutti.push(rotellina.mesh);
+// Su desktop la stessa funzione e' nel pulsante in alto a destra (vedi index.html)
+document.getElementById('impostazioni')?.addEventListener('click', () => { gruppoImp.visible = !gruppoImp.visible; });
 
 function apriDna() {
   gruppoMenu.visible = false; gruppoMol.visible = false; gruppoTav.visible = false; gruppoDna.visible = true;
@@ -137,7 +169,7 @@ function apriDna() {
 function apriTavola() {
   gruppoMenu.visible = false; gruppoMol.visible = false; gruppoTav.visible = true; gruppoDna.visible = false;
   modulo.pulisci(); dna.pulisci(); tavola.mostra(true);
-  vistaDesktop?.impostaVista(new THREE.Vector3(0, 1.55, -1.5), 2.0, 0, 0.1);
+  vistaDesktop?.impostaVista(new THREE.Vector3(0, 1.55, -1.0), 1.9, 0, 0.1);
   guida('<b>Tavola periodica.</b> Clicca un elemento per vedere le informazioni e il modello dell\'atomo (gli elettroni esterni sono arancioni). Visore: punta e premi il grilletto.');
 }
 function apriMolecole(formula) {
@@ -170,7 +202,7 @@ const alPremi = (mesh) => {
 const dentro = (o, radice) => { for (let x = o; x; x = x.parent) if (x === radice) return true; return false; };
 const schede = [pannello.mesh, pannelloDna.mesh, tavola.pannello.mesh];
 // Blocchi grandi spostabili con la presa laterale: tutto il menu, la tavola, il modello dell'atomo
-const gruppiBlocco = [gruppoMenu, tavola.tabella, tavola.atomo];
+const gruppiBlocco = [gruppoMenu, gruppoImp, tavola.tabella, tavola.atomo];
 // Posizione iniziale di schede e blocchi, per poterli riportare al loro posto con il tasto di ricentramento
 const iniziali = [...schede, ...gruppiBlocco].map((m) => ({ m, p: m.position.clone(), r: m.rotation.clone(), s: m.scale.clone() }));
 function riportaOggetti() {
@@ -194,6 +226,7 @@ const controller = new GestoreControllerXR(renderer, scena, afferrabili, {
   grandi: () => [...schede, titolo.mesh, tavola.atomo, dna.helice], blocco: bloccoDi,
   onRicentra: riportaOggetti,
 });
+aggiornaImp();   // applica le impostazioni salvate (audio, mani, posizione, distanza)
 vistaDesktop = new ControlliDesktop(renderer.domElement, camera, scena, afferrabili, {
   onAfferra: alAfferra, onRilascia: alRilascio,
   premibili: () => tutti, onPremi: alPremi,
@@ -210,7 +243,19 @@ if (supporto.vr) {
   }));
 }
 
-renderer.setAnimationLoop((t, frame) => { controller.aggiorna(frame); visuali.aggiorna(); modulo.aggiorna(); tavola.aggiorna(t / 1000); dna.aggiorna(t / 1000); renderer.render(scena, camera); });
+// Diagnosi dell'hand tracking: mostra nel pannello Impostazioni se il visore lo ha concesso e se vede le mani
+let ultimoStatoMani = '';
+function aggiornaStatoMani() {
+  const sess = renderer.xr.getSession && renderer.xr.getSession();
+  let testo = 'Mani: apri la VR per verificare';
+  if (sess) {
+    const concesso = sess.enabledFeatures ? sess.enabledFeatures.includes('hand-tracking') : null;
+    const viste = [...sess.inputSources].some((i) => i.hand);
+    testo = concesso === false ? 'Hand tracking non concesso dal browser' : viste ? 'Mani rilevate: pizzica per afferrare' : 'Hand tracking attivo: appoggia i controller';
+  }
+  if (testo !== ultimoStatoMani) { ultimoStatoMani = testo; statoMani.imposta([{ testo, dimensione: 34, colore: '#9ecbff' }]); }
+}
+renderer.setAnimationLoop((t, frame) => { if (gruppoImp.visible) aggiornaStatoMani(); controller.aggiorna(frame); visuali.aggiorna(); modulo.aggiorna(); tavola.aggiorna(t / 1000); dna.aggiorna(t / 1000); renderer.render(scena, camera); });
 addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);

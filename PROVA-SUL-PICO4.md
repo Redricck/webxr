@@ -39,3 +39,7 @@ python -m http.server 8000
 adb reverse tcp:8000 tcp:8000
 ```
 Poi nel Browser del Pico apri `http://localhost:8000/scienze-vr/` (su `localhost` WebXR funziona anche senza HTTPS).
+
+## Impostazioni (rotellina)
+La rotellina in basso a sinistra (su desktop: pulsante "Impostazioni" in alto a destra) apre il pannello: audio sì/no, volume musica ed effetti, posizione seduto/in piedi, distanza di partenza, mani sì/no, ricentra. Le scelte restano salvate nel browser.
+Mani: serve "Tracciamento delle mani" attivo nelle impostazioni del Pico; si pizzica per afferrare. Il pannello scrive se il browser ha concesso l'hand tracking.

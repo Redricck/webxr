@@ -5,6 +5,8 @@ export class Audio {
   constructor() {
     this.ctx = null;
     this.musicaAttiva = true;        // il pulsante "Audio" accende/spegne musica ed effetti
+    this.volMusica = 0.6;            // 0-1, regolabili dalle impostazioni
+    this.volEffetti = 0.8;
     this._avviata = false;
   }
 
@@ -17,12 +19,15 @@ export class Audio {
         this.ctx = new AC();
         this.master = this.ctx.createGain(); this.master.gain.value = this.musicaAttiva ? 1 : 0;
         this.master.connect(this.ctx.destination);
+        // Catena: musica -> gMusica (volume utente) -> master; effetti -> gEffetti (volume utente) -> master
+        this.gMusica = this.ctx.createGain(); this.gMusica.gain.value = this.volMusica; this.gMusica.connect(this.master);
+        this.gEffetti = this.ctx.createGain(); this.gEffetti.gain.value = this.volEffetti; this.gEffetti.connect(this.master);
         this.musica = this.ctx.createGain(); this.musica.gain.value = 0.22;   // la musica resta bassa, sotto gli effetti
         // Eco morbido per dare spazio ai suoni (ritardo con retroazione)
         const ritardo = this.ctx.createDelay(1.0); ritardo.delayTime.value = 0.42;
         const retro = this.ctx.createGain(); retro.gain.value = 0.38;
         ritardo.connect(retro); retro.connect(ritardo);
-        this.musica.connect(this.master); this.musica.connect(ritardo); ritardo.connect(this.master);
+        this.musica.connect(this.gMusica); this.musica.connect(ritardo); ritardo.connect(this.gMusica);
       }
       if (this.ctx.state === 'suspended') this.ctx.resume();
       if (!this._avviata) { this._avviata = true; this._avviaMusica(); }
@@ -30,10 +35,24 @@ export class Audio {
   }
 
   /** Accende o spegne tutto l'audio. Restituisce il nuovo stato. */
-  alterna() {
-    this.musicaAttiva = !this.musicaAttiva;
-    if (this.master) this.master.gain.setTargetAtTime(this.musicaAttiva ? 1 : 0, this.ctx.currentTime, 0.2);
+  alterna() { return this.impostaAttivo(!this.musicaAttiva); }
+
+  impostaAttivo(si) {
+    this.musicaAttiva = !!si;
+    if (this.ctx) {
+      this.master.gain.setTargetAtTime(this.musicaAttiva ? 1 : 0, this.ctx.currentTime, 0.15);
+      if (this.musicaAttiva && this.ctx.state === 'suspended') this.ctx.resume();
+    }
     return this.musicaAttiva;
+  }
+
+  /** Volumi da 0 a 1. Si possono impostare anche prima che l'audio sia sbloccato. */
+  impostaVolumi(musica, effetti) {
+    this.volMusica = musica; this.volEffetti = effetti;
+    if (this.ctx) {
+      this.gMusica.gain.setTargetAtTime(musica, this.ctx.currentTime, 0.1);
+      this.gEffetti.gain.setTargetAtTime(effetti, this.ctx.currentTime, 0.1);
+    }
   }
 
   // ---------- Musica: pad lento che cambia accordo + campanelle casuali ----------
@@ -94,7 +113,7 @@ export class Audio {
     g.gain.setValueAtTime(0.0001, t);
     g.gain.exponentialRampToValueAtTime(vol, t + 0.01);
     g.gain.exponentialRampToValueAtTime(0.0001, t + durata);
-    o.connect(g); g.connect(uscita || this.master);
+    o.connect(g); g.connect(uscita || this.gEffetti);
     o.start(t); o.stop(t + durata + 0.05);
   }
 

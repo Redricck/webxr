@@ -55,9 +55,10 @@ export function creaPulsanteXR(renderer, modo, opzioni = {}) {
  * Ricentra la vista: porta lo studente al centro della scena, rivolto verso la scena (-z), e alla giusta altezza.
  * Serve quando si e' seduti (testa piu' in basso) o ci si e' spostati/girati. Se la testa e' piu' bassa di
  * `altezzaMinima` la si "alza" a quell'altezza (cosi' gli oggetti, pensati per occhi a 1,5-1,6 m, restano comodi).
+ * `avanti` (m): avvicina (positivo) o allontana (negativo) lo studente dalla scena rispetto al centro.
  * Va chiamata con il `frame` XR corrente. Restituisce true se ha funzionato.
  */
-export function ricentraVista(renderer, frame, altezzaMinima = 1.5) {
+export function ricentraVista(renderer, frame, altezzaMinima = 1.5, avanti = 0) {
   const rif = renderer.xr.getReferenceSpace();
   if (!rif || !frame) return false;
   const posa = frame.getViewerPose(rif);
@@ -68,7 +69,9 @@ export function ricentraVista(renderer, frame, altezzaMinima = 1.5) {
   const piatta = Math.hypot(dir.x, dir.z);
   const yaw = piatta > 0.3 ? Math.atan2(-dir.x, -dir.z) : 0;
   const altezza = Math.max(p.y, altezzaMinima);
-  const T = new XRRigidTransform({ x: p.x, y: p.y - altezza, z: p.z }, { x: 0, y: Math.sin(yaw / 2), z: 0, w: Math.cos(yaw / 2) });
+  // La nuova origine sta dietro (o davanti) alla testa: la testa risulta a `avanti` metri davanti al centro
+  const fx = -Math.sin(yaw), fz = -Math.cos(yaw);
+  const T = new XRRigidTransform({ x: p.x - fx * avanti, y: p.y - altezza, z: p.z - fz * avanti }, { x: 0, y: Math.sin(yaw / 2), z: 0, w: Math.cos(yaw / 2) });
   renderer.xr.setReferenceSpace(rif.getOffsetReferenceSpace(T));
   return true;
 }
