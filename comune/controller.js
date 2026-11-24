@@ -123,6 +123,8 @@ export class GestoreControllerXR {
     b.genitore = o.parent;
     if (b.inizio) b.inizio();
     c.attach(o);                 // l'oggetto grande resta dov'e' rispetto alla mano (niente "tirata")
+    // Se il blocco chiede di essere avvicinato (es. atomo della tavola) e sta piu' lontano, lo si porta davanti alla mano
+    if (b.avvicina && o.position.length() > b.avvicina) o.position.setLength(b.avvicina);
     c.userData.tenuto = o; c.userData.blocco = b;
     this._vibra(c, 0.5, 60);
   }

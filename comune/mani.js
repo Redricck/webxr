@@ -43,7 +43,7 @@ export function creaVisualiInput(renderer, scena) {
     scena.add(grip);
     // Mani: una sfera per articolazione (25), aggiornate da aggiorna()
     const mano = renderer.xr.getHand(i);
-    const sfere = new THREE.InstancedMesh(geoSfera, matMano, 25);
+    const sfere = new THREE.InstancedMesh(geoSfera, matMano, 25);   // (non piu' usate: vedi sotto)
     sfere.frustumCulled = false;
     sfere.count = 0;
     mano.add(sfere);
@@ -51,21 +51,36 @@ export function creaVisualiInput(renderer, scena) {
     mani.push({ mano, sfere });
   }
   const m = new THREE.Matrix4(), pos = new THREE.Vector3(), q = new THREE.Quaternion(), sc = new THREE.Vector3();
+  // Mani disegnate direttamente dai giunti del fotogramma (cosi' funzionano anche se il tipo di input
+  // cambia a sessione gia' avviata, es. si posano i controller): fino a 2 mani x 25 giunti.
+  const sfereMani = new THREE.InstancedMesh(geoSfera, matMano, 50);
+  sfereMani.frustumCulled = false; sfereMani.count = 0;
+  scena.add(sfereMani);
+  const stato = { mani: 0, giunti: 0 };   // per la diagnosi nelle impostazioni
   return {
-    aggiorna() {
+    stato,
+    aggiorna(frame) {
       // Quando il modello vero e' pronto si nasconde quello stilizzato
-      for (const { modello, semplice } of modelliVeri) if (modello.motionController && modello.children.length > 0 && semplice.visible) semplice.visible = false;   // children: arriva quando il file .glb e' caricato
-      for (const { mano, sfere } of mani) {
-        const giunti = Object.values(mano.joints || {}).filter((j) => j.visible);
-        sfere.count = Math.min(giunti.length, 25);
-        for (let k = 0; k < sfere.count; k++) {
-          const j = giunti[k];
-          pos.setFromMatrixPosition(j.matrix);
-          sc.setScalar(j.jointRadius || 0.008);
-          sfere.setMatrixAt(k, m.compose(pos, q.identity(), sc));
+      for (const { modello, semplice } of modelliVeri) if (modello.motionController && modello.children.length > 0 && semplice.visible) semplice.visible = false;
+      const sess = renderer.xr.getSession && renderer.xr.getSession();
+      const rif = renderer.xr.getReferenceSpace && renderer.xr.getReferenceSpace();
+      let n = 0; stato.mani = 0;
+      if (frame && sess && rif) {
+        for (const src of sess.inputSources) {
+          if (!src.hand) continue;
+          stato.mani++;
+          for (const giunto of src.hand.values()) {
+            const p = frame.getJointPose(giunto, rif);
+            if (!p || n >= 50) continue;
+            const t = p.transform.position;
+            pos.set(t.x, t.y, t.z);
+            sc.setScalar(Math.max(p.radius || 0.008, 0.006));
+            sfereMani.setMatrixAt(n++, m.compose(pos, q.identity(), sc));
+          }
         }
-        sfere.instanceMatrix.needsUpdate = true;
       }
+      sfereMani.count = n; stato.giunti = n;
+      sfereMani.instanceMatrix.needsUpdate = true;
     },
   };
 }

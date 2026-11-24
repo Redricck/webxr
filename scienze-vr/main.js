@@ -120,8 +120,8 @@ const gruppoImp = new THREE.Group(); scena.add(gruppoImp); gruppoImp.visible = f
 const titoloImp = new PannelloTesto(0.5, 0.1, 512);
 titoloImp.imposta([{ testo: 'Impostazioni', dimensione: 56, grassetto: true }]);
 titoloImp.mesh.position.set(0, 1.86, -0.8); gruppoImp.add(titoloImp.mesh);
-const statoMani = new PannelloTesto(0.5, 0.1, 512);       // diagnosi dell'hand tracking
-statoMani.mesh.position.set(0, 0.9, -0.8); gruppoImp.add(statoMani.mesh);
+const statoMani = new PannelloTesto(0.5, 0.16, 512);       // diagnosi dell'hand tracking
+statoMani.mesh.position.set(0, 0.86, -0.8); gruppoImp.add(statoMani.mesh);
 const rigaImp = (i) => 1.74 - i * 0.115;
 const Z_IMP = -0.8;
 const bImp = {};
@@ -145,20 +145,26 @@ const cambiaVol = (nome, d) => { imp.imposta(nome, Math.min(1, Math.max(0, Math.
 bImp.audio = pressImp('Audio', 0.5, 0, 0, () => { audio.sblocca(); imp.imposta('audio', !imp.get('audio')); aggiornaImp(); audio.suono('click'); });
 pressImp('−', 0.1, -0.2, 1, () => cambiaVol('volMusica', -0.1)); bImp.musica = pressImp('Musica', 0.3, 0, 1, () => {}); pressImp('+', 0.1, 0.2, 1, () => cambiaVol('volMusica', 0.1));
 pressImp('−', 0.1, -0.2, 2, () => cambiaVol('volEffetti', -0.1)); bImp.effetti = pressImp('Effetti', 0.3, 0, 2, () => {}); pressImp('+', 0.1, 0.2, 2, () => cambiaVol('volEffetti', 0.1));
-bImp.posizione = pressImp('Posizione', 0.5, 0, 3, () => { imp.imposta('seduto', !imp.get('seduto')); aggiornaImp(); controller.richiediRicentra(); });
-bImp.distanza = pressImp('Distanza', 0.5, 0, 4, () => { const o = Object.keys(DISTANZE); imp.imposta('distanza', o[(o.indexOf(imp.get('distanza')) + 1) % o.length]); aggiornaImp(); controller.richiediRicentra(); });
+bImp.posizione = pressImp('Posizione', 0.5, 0, 3, () => { imp.imposta('seduto', !imp.get('seduto')); aggiornaImp(); });
+bImp.distanza = pressImp('Distanza', 0.5, 0, 4, () => { const o = Object.keys(DISTANZE); imp.imposta('distanza', o[(o.indexOf(imp.get('distanza')) + 1) % o.length]); aggiornaImp(); });
 bImp.mani = pressImp('Mani', 0.5, 0, 5, () => { imp.imposta('mani', !imp.get('mani')); aggiornaImp(); });
 pressImp('Ricentra ora', 0.24, -0.13, 6, () => controller.richiediRicentra());
 pressImp('Chiudi', 0.24, 0.13, 6, () => { gruppoImp.visible = false; });
 // Il pannello ruota/si sposta attorno al proprio centro (si puo' prendere con la presa laterale)
-gruppoImp.position.set(0.95, 1.4, Z_IMP); gruppoImp.rotation.y = -0.6;   // a destra, girato verso chi guarda
+// Sfondo scuro del pannello (si puo' afferrare ovunque con la presa laterale per spostarlo)
+const sfondoImp = new THREE.Mesh(new THREE.PlaneGeometry(0.58, 1.18), new THREE.MeshBasicMaterial({ color: 0x0b1220, transparent: true, opacity: 0.8 }));
+sfondoImp.position.set(0, 1.36, Z_IMP - 0.01); gruppoImp.add(sfondoImp);
+// Il pannello si apre sempre sopra la rotellina (che sta vicino ai pulsanti Menu, a destra)
+const POS_ROTELLINA = new THREE.Vector3(0.98, 0.75, -0.52);
+function posizionaPannelloImp() { gruppoImp.position.set(0.8, 1.48, -0.55); gruppoImp.rotation.set(0, -0.45, 0); gruppoImp.scale.setScalar(1); }
+posizionaPannelloImp();
 for (const f of gruppoImp.children) f.position.sub(new THREE.Vector3(0, 1.4, Z_IMP));
 // Rotellina sempre visibile (fuori dai gruppi dei moduli), accanto ai pulsanti in basso a sinistra
-const rotellina = new Pulsante3D('', 0.12, 0.12, () => { gruppoImp.visible = !gruppoImp.visible; }, 'ingranaggio');
-rotellina.mesh.position.set(-1.0, 0.85, -0.55); rotellina.mesh.rotation.x = -0.6;
+const rotellina = new Pulsante3D('', 0.12, 0.12, () => { gruppoImp.visible = !gruppoImp.visible; if (gruppoImp.visible) posizionaPannelloImp(); }, 'ingranaggio');
+rotellina.mesh.position.copy(POS_ROTELLINA); rotellina.mesh.rotation.x = -0.6;
 scena.add(rotellina.mesh); tutti.push(rotellina.mesh);
 // Su desktop la stessa funzione e' nel pulsante in alto a destra (vedi index.html)
-document.getElementById('impostazioni')?.addEventListener('click', () => { gruppoImp.visible = !gruppoImp.visible; });
+document.getElementById('impostazioni')?.addEventListener('click', () => { gruppoImp.visible = !gruppoImp.visible; if (gruppoImp.visible) posizionaPannelloImp(); });
 
 function apriDna() {
   gruppoMenu.visible = false; gruppoMol.visible = false; gruppoTav.visible = false; gruppoDna.visible = true;
@@ -214,6 +220,7 @@ function bloccoDi(colpito) {
   const elica = dna.blocco(colpito); if (elica) return elica;
   const scheda = schede.find((m) => dentro(colpito, m));
   if (scheda) return { oggetto: scheda, scalabile: true };
+  if (dentro(colpito, tavola.atomo)) return { oggetto: tavola.atomo, scalabile: true, avvicina: 0.35 };   // l'atomo si avvicina alla mano
   const gruppo = gruppiBlocco.find((g) => dentro(colpito, g));
   return gruppo ? { oggetto: gruppo, scalabile: true } : null;
 }
@@ -223,7 +230,7 @@ const visuali = creaVisualiInput(renderer, scena);     // modelli dei controller
 const controller = new GestoreControllerXR(renderer, scena, afferrabili, {
   onAfferra: (o) => { audio.sblocca(); alAfferra(o); }, onRilascia: alRilascio,
   premibili: () => tutti, onPremi: alPremi,
-  grandi: () => [...schede, titolo.mesh, tavola.atomo, dna.helice], blocco: bloccoDi,
+  grandi: () => [...schede, titolo.mesh, tavola.atomo, dna.helice, sfondoImp], blocco: bloccoDi,
   onRicentra: riportaOggetti,
 });
 aggiornaImp();   // applica le impostazioni salvate (audio, mani, posizione, distanza)
@@ -247,15 +254,17 @@ if (supporto.vr) {
 let ultimoStatoMani = '';
 function aggiornaStatoMani() {
   const sess = renderer.xr.getSession && renderer.xr.getSession();
-  let testo = 'Mani: apri la VR per verificare';
+  let testo = 'Mani: entra in VR per verificare';
   if (sess) {
     const concesso = sess.enabledFeatures ? sess.enabledFeatures.includes('hand-tracking') : null;
-    const viste = [...sess.inputSources].some((i) => i.hand);
-    testo = concesso === false ? 'Hand tracking non concesso dal browser' : viste ? 'Mani rilevate: pizzica per afferrare' : 'Hand tracking attivo: appoggia i controller';
+    const n = visuali.stato.mani;
+    testo = concesso === false ? 'Hand tracking NON concesso dal browser'
+      : n > 0 ? `Mani viste: ${n} (giunti ${visuali.stato.giunti}). Pizzica per afferrare`
+      : 'Hand tracking attivo, nessuna mano vista: posa i controller e mostra le mani';
   }
-  if (testo !== ultimoStatoMani) { ultimoStatoMani = testo; statoMani.imposta([{ testo, dimensione: 34, colore: '#9ecbff' }]); }
+  if (testo !== ultimoStatoMani) { ultimoStatoMani = testo; statoMani.imposta([{ testo, dimensione: 44, colore: '#ffffff' }]); }
 }
-renderer.setAnimationLoop((t, frame) => { if (gruppoImp.visible) aggiornaStatoMani(); controller.aggiorna(frame); visuali.aggiorna(); modulo.aggiorna(); tavola.aggiorna(t / 1000); dna.aggiorna(t / 1000); renderer.render(scena, camera); });
+renderer.setAnimationLoop((t, frame) => { if (gruppoImp.visible) aggiornaStatoMani(); controller.aggiorna(frame); visuali.aggiorna(frame); modulo.aggiorna(); tavola.aggiorna(t / 1000); dna.aggiorna(t / 1000); renderer.render(scena, camera); });
 addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
