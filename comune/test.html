@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Test WebXR - cosa supporta il visore?</title>
+<style>
+  body { margin: 0; font-family: sans-serif; background: #101828; color: #fff; }
+  #info { position: fixed; top: 0; left: 0; right: 0; padding: 12px 16px; background: rgba(0,0,0,.6); z-index: 2; font-size: 15px; }
+  #info h1 { margin: 0 0 6px; font-size: 18px; }
+  #info td { padding: 1px 12px 1px 0; }
+  .ok { color: #6f6; } .no { color: #f77; }
+  #pulsanti { position: fixed; bottom: 16px; left: 0; right: 0; text-align: center; z-index: 2; }
+  .pulsante-xr { font-size: 20px; padding: 14px 22px; margin: 0 8px; border: 0; border-radius: 10px; background: #2f7cf6; color: #fff; cursor: pointer; }
+</style>
+<!-- La libreria three.js e' copiata nella cartella (lib/three): niente CDN, funziona con la rete della scuola. -->
+<script type="importmap">{ "imports": { "three": "./lib/three/three.module.min.js" } }</script>
+</head>
+<body>
+<div id="info"><h1>Test WebXR</h1><div id="esito">Controllo in corso...</div></div>
+<div id="pulsanti"></div>
+<script type="module">
+import * as THREE from 'three';
+import { rilevaSupportoXR, creaPulsanteXR } from './xr-supporto.js';
+import { PannelloTesto } from './pannello.js';
+
+// --- Scena: un cubo che ruota, visibile sia in VR sia in AR sia sullo schermo ---
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true }); // alpha serve per l'AR
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.xr.enabled = true;
+document.body.appendChild(renderer.domElement);
+
+const scena = new THREE.Scene();
+scena.background = new THREE.Color(0x101828); // in AR lo sfondo viene tolto (vedi onInizio)
+const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.05, 50);
+camera.position.set(0, 1.4, 1.2);
+camera.lookAt(0, 1.3, -1);
+
+scena.add(new THREE.HemisphereLight(0xffffff, 0x444466, 1.4));
+const luce = new THREE.DirectionalLight(0xffffff, 1.5); luce.position.set(1, 3, 2); scena.add(luce);
+
+const cubo = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.3, 0.3), new THREE.MeshStandardMaterial({ color: 0xff8844 }));
+cubo.position.set(0, 1.3, -1); // 1 m davanti, all'altezza degli occhi
+scena.add(cubo);
+const griglia = new THREE.GridHelper(6, 12, 0x4466aa, 0x223355); scena.add(griglia);
+
+// Pannello 3D: dentro il visore mostra modalita' e funzioni attive della sessione.
+const pannello = new PannelloTesto(0.8, 0.45);
+pannello.mesh.position.set(0, 1.75, -1.2);
+scena.add(pannello.mesh);
+pannello.imposta([{ testo: 'Test WebXR', dimensione: 56, grassetto: true }, { testo: 'Fuori dal visore: schermo normale.' }]);
+
+function riepilogoSessione(sessione, modo) {
+  const funzioni = sessione.enabledFeatures ? sessione.enabledFeatures.join(', ') : '(non indicato dal browser)';
+  const sorgenti = [...sessione.inputSources].map((s) => `${s.handedness}: ${s.profiles[0] || 'controller'}${s.hand ? ' (mani)' : ''}`).join(' | ') || 'nessuno ancora';
+  pannello.imposta([
+    { testo: 'Sessione attiva: ' + modo, dimensione: 52, grassetto: true, colore: '#7f7' },
+    { testo: 'Funzioni: ' + funzioni, dimensione: 36 },
+    { testo: 'Ingressi: ' + sorgenti, dimensione: 36 },
+  ]);
+}
+
+const pulsanti = document.getElementById('pulsanti');
+function aggiungi(modo) {
+  pulsanti.appendChild(creaPulsanteXR(renderer, modo, {
+    onInizio: (s) => {
+      scena.background = modo === 'immersive-ar' ? null : new THREE.Color(0x101828);
+      griglia.visible = modo === 'immersive-vr';
+      riepilogoSessione(s, modo);
+      s.addEventListener('inputsourceschange', () => riepilogoSessione(s, modo));
+    },
+    onFine: () => { scena.background = new THREE.Color(0x101828); griglia.visible = true; },
+  }));
+}
+
+// --- Rilevamento supporto ---
+const esito = document.getElementById('esito');
+const s = await rilevaSupportoXR();
+const riga = (nome, ok) => `<tr><td>${nome}</td><td class="${ok ? 'ok' : 'no'}">${ok ? 'SI' : 'NO'}</td></tr>`;
+esito.innerHTML = '<table>' + riga('WebXR presente nel browser', s.webxr) + riga('Connessione sicura (HTTPS)', s.https)
+  + riga('immersive-vr (realta virtuale)', s.vr) + riga('immersive-ar (realta aumentata)', s.ar) + '</table>'
+  + (s.errore ? `<div class="no">Errore: ${s.errore}</div>` : '')
+  + (!s.https ? '<div class="no">Apri la pagina da https:// (o localhost): senza HTTPS WebXR non funziona.</div>' : '');
+if (s.vr) aggiungi('immersive-vr');
+if (s.ar) aggiungi('immersive-ar');
+if (!s.vr && !s.ar) pulsanti.textContent = 'Nessuna modalita immersiva disponibile: vedi il cubo sullo schermo.';
+
+// --- Ciclo di disegno (setAnimationLoop funziona sia su schermo sia in XR) ---
+renderer.setAnimationLoop((t) => {
+  cubo.rotation.y = t / 1000;
+  cubo.rotation.x = t / 1700;
+  renderer.render(scena, camera);
+});
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+</script>
+</body>
+</html>

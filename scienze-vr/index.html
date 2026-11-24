@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scienze VR - Costruisci la molecola</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #101828; font-family: sans-serif; color: #fff; }
+  #guida { position: fixed; top: 0; left: 0; right: 0; padding: 10px 16px; background: rgba(0,0,0,.55); font-size: 15px; z-index: 2; }
+  #pulsanti { position: fixed; bottom: 16px; left: 0; right: 0; text-align: center; z-index: 2; }
+  button { font-size: 18px; padding: 12px 20px; margin: 0 6px; border: 0; border-radius: 10px; background: #2f7cf6; color: #fff; cursor: pointer; }
+  button.secondario { background: #44506a; }
+</style>
+<!-- three.js e' copiata in comune/lib/three: niente CDN. "comune/" e' un prefisso per importare i moduli condivisi. -->
+<script type="importmap">{ "imports": { "three": "../comune/lib/three/three.module.min.js", "comune/": "../comune/" } }</script>
+</head>
+<body>
+<div id="guida">
+  <b>Costruisci la molecola.</b>
+  Mouse: trascina un atomo per spostarlo e avvicinalo a un altro per legarli; trascina lo sfondo per ruotare, rotella per lo zoom.
+  Visore: grilletto o presa per afferrare.
+</div>
+<div id="pulsanti"></div>
+<script type="module" src="./main.js"></script>
+</body>
+</html>
