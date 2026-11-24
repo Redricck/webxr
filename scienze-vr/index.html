@@ -13,7 +13,33 @@
   button.secondario { background: #44506a; }
 </style>
 <!-- three.js e' copiata in comune/lib/three: niente CDN. "comune/" e' un prefisso per importare i moduli condivisi. -->
-<script type="importmap">{ "imports": { "three": "../comune/lib/three/three.module.min.js", "comune/": "../comune/" } }</script>
+<script type="importmap">
+{
+ "imports": {
+  "three": "../comune/lib/three/three.module.min.js",
+  "comune/audio.js": "../comune/audio.js?v=8",
+  "../comune/audio.js": "../comune/audio.js?v=8",
+  "comune/controller.js": "../comune/controller.js?v=8",
+  "../comune/controller.js": "../comune/controller.js?v=8",
+  "comune/impostazioni.js": "../comune/impostazioni.js?v=8",
+  "../comune/impostazioni.js": "../comune/impostazioni.js?v=8",
+  "comune/mani.js": "../comune/mani.js?v=8",
+  "../comune/mani.js": "../comune/mani.js?v=8",
+  "comune/menu.js": "../comune/menu.js?v=8",
+  "../comune/menu.js": "../comune/menu.js?v=8",
+  "comune/pannello.js": "../comune/pannello.js?v=8",
+  "../comune/pannello.js": "../comune/pannello.js?v=8",
+  "comune/xr-supporto.js": "../comune/xr-supporto.js?v=8",
+  "../comune/xr-supporto.js": "../comune/xr-supporto.js?v=8",
+  "./dna.js": "./dna.js?v=8",
+  "./laboratorio.js": "./laboratorio.js?v=8",
+  "./main.js": "./main.js?v=8",
+  "./molecole.js": "./molecole.js?v=8",
+  "./tavola.js": "./tavola.js?v=8",
+  "comune/": "../comune/"
+ }
+}
+</script>
 </head>
 <body>
 <div id="guida">
@@ -23,6 +49,6 @@
 </div>
 <div id="pulsanti"></div>
 <button id="impostazioni" title="Impostazioni">⚙ Impostazioni</button>
-<script type="module" src="./main.js"></script>
+<script type="module" src="./main.js?v=8"></script>
 </body>
 </html>

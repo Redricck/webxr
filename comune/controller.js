@@ -50,7 +50,7 @@ export class GestoreControllerXR {
     this.controller = [];
     this.dueMani = null;            // stato della presa con due mani
     this.maniAttive = true;         // se false, i comandi dati con le mani (hand tracking) vengono ignorati
-    this.opzioniRicentra = { altezzaMinima: 1.5, avanti: 0 };   // modificabili dalle impostazioni
+    this.opzioniRicentra = { altezzaFissa: 1.8, altezzaMinima: 0, avanti: 0, alza: 0 };   // modificabili dalle impostazioni
     this.daRicentrare = false;      // se true, ricentra appena arriva il primo fotogramma
     this.ultimoTempo = performance.now();
 
@@ -233,7 +233,7 @@ export class GestoreControllerXR {
     this.ultimoTempo = ora;
 
     if (this.daRicentrare && frame && this.renderer.xr.isPresenting) {
-      if (ricentraVista(this.renderer, frame, this.opzioniRicentra.altezzaMinima, this.opzioniRicentra.avanti)) { this.daRicentrare = false; this.onRicentra(); }
+      if (ricentraVista(this.renderer, frame, this.opzioniRicentra)) { this.daRicentrare = false; this.onRicentra(); }
     }
     this._aggiornaDueMani();
 
@@ -243,7 +243,7 @@ export class GestoreControllerXR {
 
       // Tasto A/B (X/Y): ricentra la vista
       const premuto = !!(gp && (gp.buttons[4]?.pressed || gp.buttons[5]?.pressed));
-      if (premuto && !c.userData.tastoPrima && frame) { ricentraVista(this.renderer, frame, this.opzioniRicentra.altezzaMinima, this.opzioniRicentra.avanti); this.onRicentra(); }
+      if (premuto && !c.userData.tastoPrima && frame) { ricentraVista(this.renderer, frame, this.opzioniRicentra); this.onRicentra(); }
       c.userData.tastoPrima = premuto;
 
       // Levetta: oggetto tenuto piu' vicino/lontano (su/giu) e ruotato (destra/sinistra)

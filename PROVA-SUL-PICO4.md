@@ -41,5 +41,9 @@ adb reverse tcp:8000 tcp:8000
 Poi nel Browser del Pico apri `http://localhost:8000/scienze-vr/` (su `localhost` WebXR funziona anche senza HTTPS).
 
 ## Impostazioni (rotellina)
-La rotellina in basso a sinistra (su desktop: pulsante "Impostazioni" in alto a destra) apre il pannello: audio sì/no, volume musica ed effetti, posizione seduto/in piedi, distanza di partenza, mani sì/no, ricentra. Le scelte restano salvate nel browser.
-Mani: serve "Tracciamento delle mani" attivo nelle impostazioni del Pico; si pizzica per afferrare. Il pannello scrive se il browser ha concesso l'hand tracking.
+In VR la rotellina resta sempre in alto a destra nello sguardo (su desktop: pulsante "Impostazioni" in alto a destra). Il pannello si apre davanti agli occhi: audio sì/no, volume musica ed effetti, posizione seduto/in piedi, altezza dei contenuti (▼ ▲, subito), distanza di partenza, mani sì/no, ricentra. Le scelte restano salvate nel browser. Il titolo mostra il numero di versione (v. N): se non è l'ultimo, ricarica la pagina (GitHub Pages tiene i file in cache fino a 10 minuti).
+
+## Mani (hand tracking)
+1. Impostazioni del Pico: cerca "Tracciamento delle mani" (in "Laboratorio" o "Interazione", dipende dalla versione) e attivalo, insieme al passaggio automatico controller/mani se c'è.
+2. Spegni i controller (tieni premuto il tasto Pico/Home qualche secondo) o lasciali fermi: il visore passa alle mani.
+3. Nel pannello Impostazioni la riga in basso dice: "Mani viste" (funziona), "Nessuna mano vista" (il visore non le passa al browser) oppure "NON concesso" (il browser non dà l'hand tracking alle pagine web).

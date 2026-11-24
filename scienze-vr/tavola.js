@@ -24,7 +24,7 @@ export class ModuloTavola {
     this.gruppo.visible = false;
     scena.add(this.gruppo);
     this.tabella = new THREE.Group();   // contiene le 118 caselle: si puo' afferrare e spostare tutta insieme
-    this.tabella.position.set(0, 1.85, POS.z);   // l'origine e' al centro della tavola: ruota e si ingrandisce attorno al suo centro
+    this.tabella.position.set(0, 1.75, POS.z);   // l'origine e' al centro della tavola: ruota e si ingrandisce attorno al suo centro
     this.gruppo.add(this.tabella);
     this.suoni = null;             // oggetto Audio (opzionale), assegnato dall'app
     this.celle = [];               // mesh delle caselle (sono i "premibili")
@@ -46,7 +46,7 @@ export class ModuloTavola {
   }
 
   _x(colonna) { return POS.x + (colonna - 9.5) * PASSO; }
-  _y(riga) { return 2.35 - (riga - 1) * PASSO; }
+  _y(riga) { return 2.25 - (riga - 1) * PASSO; }
 
   _costruisciTavola() {
     for (const e of this.dati) {

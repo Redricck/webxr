@@ -58,7 +58,11 @@ export function creaPulsanteXR(renderer, modo, opzioni = {}) {
  * `avanti` (m): avvicina (positivo) o allontana (negativo) lo studente dalla scena rispetto al centro.
  * Va chiamata con il `frame` XR corrente. Restituisce true se ha funzionato.
  */
-export function ricentraVista(renderer, frame, altezzaMinima = 1.5, avanti = 0) {
+export function ricentraVista(renderer, frame, opz = {}) {
+  // opz: { altezzaFissa: altezza virtuale degli occhi (m) oppure null = altezza reale,
+  //        altezzaMinima: se altezza reale, almeno questa; avanti: metri di avvicinamento alla scena;
+  //        alza: metri di cui alzare i contenuti rispetto agli occhi (negativo = abbassarli) }
+  const { altezzaFissa = null, altezzaMinima = 0, avanti = 0, alza = 0 } = opz;
   const rif = renderer.xr.getReferenceSpace();
   if (!rif || !frame) return false;
   const posa = frame.getViewerPose(rif);
@@ -68,10 +72,18 @@ export function ricentraVista(renderer, frame, altezzaMinima = 1.5, avanti = 0) 
   const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(new THREE.Quaternion(o.x, o.y, o.z, o.w));
   const piatta = Math.hypot(dir.x, dir.z);
   const yaw = piatta > 0.3 ? Math.atan2(-dir.x, -dir.z) : 0;
-  const altezza = Math.max(p.y, altezzaMinima);
+  // Altezza virtuale degli occhi: piu' e' grande, piu' i contenuti appaiono in basso
+  const altezza = (altezzaFissa ?? Math.max(p.y, altezzaMinima)) - alza;
   // La nuova origine sta dietro (o davanti) alla testa: la testa risulta a `avanti` metri davanti al centro
   const fx = -Math.sin(yaw), fz = -Math.cos(yaw);
   const T = new XRRigidTransform({ x: p.x - fx * avanti, y: p.y - altezza, z: p.z - fz * avanti }, { x: 0, y: Math.sin(yaw / 2), z: 0, w: Math.cos(yaw / 2) });
   renderer.xr.setReferenceSpace(rif.getOffsetReferenceSpace(T));
   return true;
+}
+
+/** Alza (d > 0) o abbassa (d < 0) subito tutti i contenuti di d metri, senza cambiare la direzione della vista. */
+export function spostaVerticale(renderer, d) {
+  const rif = renderer.xr.getReferenceSpace();
+  if (!rif || !renderer.xr.isPresenting) return;
+  renderer.xr.setReferenceSpace(rif.getOffsetReferenceSpace(new XRRigidTransform({ x: 0, y: d, z: 0 })));
 }
