@@ -43,6 +43,7 @@ export class GestoreControllerXR {
     this.grandi = opzioni.grandi || (() => []);
     this.bloccoDi = opzioni.blocco || (() => null);
     this.onRicentra = opzioni.onRicentra || (() => {});
+    this.distanzaPresaRaggio = opzioni.distanzaPresaRaggio ?? 0.4;   // a che distanza dalla mano arriva un atomo preso col raggio
     this.raggioPresa = opzioni.raggioPresa ?? 0.12;     // presa "a mano": oggetto vicino al controller
     this.distanzaRaggio = opzioni.distanzaRaggio ?? 3;  // presa "a distanza" col raggio
     this.raycaster = new THREE.Raycaster();
@@ -51,6 +52,8 @@ export class GestoreControllerXR {
     this.dueMani = null;            // stato della presa con due mani
     this.modoInput = 'auto';        // 'auto' (controller e mani), 'mani' (solo mani) o 'controller' (solo controller)
     this.opzioniRicentra = { altezzaFissa: 1.8, altezzaMinima: 0, avanti: 0, alza: 0 };   // modificabili dalle impostazioni
+    this.maniViste = 0;             // quante mani (hand tracking) il visore sta vedendo in questo momento
+    this.stabile = null;            // attesa di un ricentro "a testa ferma" (vedi richiediRicentraStabile)
     this.daRicentrare = false;      // se true, ricentra appena arriva il primo fotogramma
     this.ultimoTempo = performance.now();
 
@@ -81,7 +84,8 @@ export class GestoreControllerXR {
   /** True se l'input di questo controller e' escluso dalla scelta Mani/Controller/Auto. */
   _ignorato(c) {
     const mano = !!c.userData.sorgente?.hand;
-    return (mano && this.modoInput === 'controller') || (!mano && this.modoInput === 'mani');
+    // "Solo mani" esclude i controller SOLO se il visore sta davvero vedendo delle mani: altrimenti si resterebbe senza comandi
+    return (mano && this.modoInput === 'controller') || (!mano && this.modoInput === 'mani' && this.maniViste > 0);
   }
 
   /**
@@ -102,6 +106,12 @@ export class GestoreControllerXR {
       c.userData['pizzico_' + nome] = dist;
     }
   }
+
+  /**
+   * Un solo ricentro all'ingresso in VR, fatto quando la testa e' ferma da mezzo secondo
+   * (o al massimo dopo 3 s): cosi' non scatta mentre ci si guarda attorno.
+   */
+  richiediRicentraStabile() { this.stabile = { t0: performance.now(), ultima: null, da: performance.now() }; }
 
   /** Chiede di ricentrare la vista al prossimo fotogramma (usato all'ingresso in VR). */
   richiediRicentra() { this.daRicentrare = true; }
@@ -139,7 +149,7 @@ export class GestoreControllerXR {
     c.attach(piccolo); // attach conserva la posizione nel mondo
     c.userData.tenuto = piccolo;
     // Presa a distanza (col raggio): l'oggetto viene "tirato" davanti alla mano, cosi' si muove con precisione
-    if (piccolo.position.length() > this.raggioPresa) piccolo.position.set(0, 0, -0.12);
+    if (piccolo.position.length() > this.raggioPresa) piccolo.position.set(0, 0, -Math.min(piccolo.position.length(), this.distanzaPresaRaggio));
     this._vibra(c, 0.4, 40);
     this.onAfferra(piccolo);
   }
@@ -260,6 +270,16 @@ export class GestoreControllerXR {
 
     if (this.daRicentrare && frame && this.renderer.xr.isPresenting) {
       if (ricentraVista(this.renderer, frame, this.opzioniRicentra)) { this.daRicentrare = false; this.onRicentra(); }
+    }
+    this.maniViste = this.controller.filter((c) => c.userData.sorgente?.hand).length;
+    if (this.stabile && frame && this.renderer.xr.isPresenting) {
+      const rif = this.renderer.xr.getReferenceSpace(), posa = rif && frame.getViewerPose(rif);
+      const st = this.stabile;
+      if (posa) {
+        const p = posa.transform.position, v = new THREE.Vector3(p.x, p.y, p.z);
+        if (!st.ultima || st.ultima.distanceTo(v) > 0.02) { st.ultima = v; st.da = ora; }
+        if (ora - st.da > 600 || ora - st.t0 > 3000) { this.stabile = null; this.daRicentrare = true; }
+      }
     }
     this._aggiornaDueMani();
 

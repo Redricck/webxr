@@ -8,7 +8,7 @@ import { Audio } from 'comune/audio.js';
 import { Impostazioni } from 'comune/impostazioni.js';
 import { spostaVerticale } from 'comune/xr-supporto.js';
 // Numero di versione mostrato nel pannello Impostazioni: serve a capire se il visore ha caricato l'ultima pubblicazione
-const VERSIONE = 10;
+const VERSIONE = 11;
 import { Pulsante3D, premi } from 'comune/menu.js';
 import { ModuloMolecole } from './molecole.js';
 import { ModuloTavola } from './tavola.js';
@@ -170,7 +170,8 @@ sfondoImp.position.set(0, 1.26, Z_IMP - 0.01); gruppoImp.add(sfondoImp);
 // Il pannello si apre davanti allo sguardo (in VR un po' rimpicciolito), poi resta fermo e si puo' spostare
 const _cp = new THREE.Vector3(), _cq = new THREE.Quaternion(), _dir = new THREE.Vector3();
 function posizionaPannelloImp() {
-  camera.getWorldPosition(_cp); camera.getWorldQuaternion(_cq);
+  const cam = renderer.xr.isPresenting ? renderer.xr.getCamera() : camera;   // in VR serve la camera del visore
+  cam.getWorldPosition(_cp); cam.getWorldQuaternion(_cq);
   _dir.set(0, 0, -1).applyQuaternion(_cq); _dir.y = 0;
   if (_dir.lengthSq() < 1e-4) _dir.set(0, 0, -1);
   _dir.normalize();
@@ -180,12 +181,22 @@ function posizionaPannelloImp() {
   gruppoImp.scale.setScalar(vr ? 1.0 : 0.8);   // in VR grande, per leggerlo bene
 }
 for (const f of gruppoImp.children) f.position.sub(new THREE.Vector3(0, 1.4, Z_IMP));
-// Rotellina: ferma nello spazio, a destra vicino ai pulsanti Menu (in VR; su desktop c'e' il pulsante HTML in alto a destra)
-const rotellina = new Pulsante3D('', 0.14, 0.14, () => { gruppoImp.visible = !gruppoImp.visible; if (gruppoImp.visible) posizionaPannelloImp(); }, 'ingranaggio');
-rotellina.mesh.position.set(0.98, 0.78, -0.52); rotellina.mesh.rotation.x = -0.6;
-scena.add(rotellina.mesh); tutti.push(rotellina.mesh);
+// Rotellina: e' l'ULTIMO pulsante di ogni schermata (menu, molecole, tavola, DNA), vicino agli altri. Si crea con aggiungiRotellina().
+function apriImpostazioni() { gruppoImp.visible = !gruppoImp.visible; if (gruppoImp.visible) posizionaPannelloImp(); }
+function aggiungiRotellina(gruppo, pos, inclina = 0, lato = 0.12) {
+  const r = new Pulsante3D('', lato, lato, apriImpostazioni, 'ingranaggio');
+  r.mesh.position.copy(pos); r.mesh.rotation.x = inclina;
+  gruppo.add(r.mesh); tutti.push(r.mesh);
+  return r;
+}
 // Su desktop la stessa funzione e' nel pulsante in alto a destra (vedi index.html)
-document.getElementById('impostazioni')?.addEventListener('click', () => { gruppoImp.visible = !gruppoImp.visible; if (gruppoImp.visible) posizionaPannelloImp(); });
+document.getElementById('impostazioni')?.addEventListener('click', apriImpostazioni);
+
+// Rotellina come ultimo pulsante di ogni schermata
+aggiungiRotellina(gruppoMenu, new THREE.Vector3(0, 0.92, -1.0).sub(gruppoMenu.position), 0, 0.16);
+aggiungiRotellina(gruppoMol, new THREE.Vector3(0.96, 0.85, -0.55), -0.6);
+aggiungiRotellina(gruppoTav, new THREE.Vector3(0.96, 0.85, -0.55), -0.6);
+aggiungiRotellina(gruppoDna, new THREE.Vector3(0.96, 0.65, -0.5), -0.6);
 
 function apriDna() {
   gruppoMenu.visible = false; gruppoMol.visible = false; gruppoTav.visible = false; gruppoDna.visible = true;
@@ -267,8 +278,7 @@ const supporto = await rilevaSupportoXR();
 if (supporto.vr) {
   document.getElementById('pulsanti').prepend(creaPulsanteXR(renderer, 'immersive-vr', {
     onInizio: () => {   // all'ingresso in VR: vista centrata e all'altezza giusta; si ripete dopo che il tracciamento si e' assestato
-      controller.richiediRicentra();
-      for (const ms of [1200, 3000]) setTimeout(() => { if (renderer.xr.isPresenting && !controller.controller.some((c) => c.userData.tenuto)) controller.richiediRicentra(); }, ms);
+      controller.richiediRicentraStabile();   // un solo ricentro, a testa ferma
     },
     onFine: () => controller.rilasciaTutto(),
   }));

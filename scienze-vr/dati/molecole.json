@@ -1,7 +1,50 @@
 {
-  "_nota": "Molecole obiettivo del modulo 1, scelte dal programma didattico (non vengono da un dataset). atomi_iniziali: gli atomi messi sul tavolo (ce n'e' uno in piu' di H, per provare anche 'troppi legami').",
-  "H2O": { "nome": "Acqua", "legami": "2 legami singoli O-H", "atomi_iniziali": ["H", "O", "H", "H"] },
-  "CO2": { "nome": "Anidride carbonica (diossido di carbonio)", "legami": "2 doppi legami C=O", "atomi_iniziali": ["O", "C", "O", "H"] },
-  "CH4": { "nome": "Metano", "legami": "4 legami singoli C-H", "atomi_iniziali": ["H", "H", "C", "H", "H", "H"] },
-  "NH3": { "nome": "Ammoniaca", "legami": "3 legami singoli N-H", "atomi_iniziali": ["H", "H", "N", "H", "H"] }
+ "_nota": "Molecole obiettivo del modulo 1, scelte dal programma didattico (non vengono da un dataset). atomi_iniziali: gli atomi messi sul tavolo: quelli che servono + qualche atomo in piu' (esche) tra cui lo studente deve scegliere.",
+ "H2O": {
+  "nome": "Acqua",
+  "legami": "2 legami singoli O-H",
+  "atomi_iniziali": [
+   "H",
+   "O",
+   "H",
+   "H",
+   "C"
+  ]
+ },
+ "CO2": {
+  "nome": "Anidride carbonica (diossido di carbonio)",
+  "legami": "2 doppi legami C=O",
+  "atomi_iniziali": [
+   "O",
+   "C",
+   "O",
+   "O",
+   "H"
+  ]
+ },
+ "CH4": {
+  "nome": "Metano",
+  "legami": "4 legami singoli C-H",
+  "atomi_iniziali": [
+   "H",
+   "H",
+   "C",
+   "H",
+   "H",
+   "H",
+   "O"
+  ]
+ },
+ "NH3": {
+  "nome": "Ammoniaca",
+  "legami": "3 legami singoli N-H",
+  "atomi_iniziali": [
+   "H",
+   "H",
+   "N",
+   "H",
+   "H",
+   "O"
+  ]
+ }
 }

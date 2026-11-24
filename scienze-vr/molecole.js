@@ -323,7 +323,7 @@ export class ModuloMolecole {
     const base = this.ultimo && this.atomi.includes(this.ultimo) ? this.ultimo : null;
     const molecola = base ? this.molecolaDi(base) : [];
     if (molecola.length < 2) {
-      righe.push({ testo: 'Afferra un atomo e avvicinalo a un altro per formare un legame.', dimensione: 48 });
+      righe.push({ testo: 'Sfida: sul tavolo ci sono anche atomi che non servono. Scegli quelli giusti e legali.', dimensione: 48 });
     } else {
       const formula = this.formula(molecola);
       const liberi = molecola.filter((a) => this.legamiLiberi(a) > 0);
