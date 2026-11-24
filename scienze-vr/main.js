@@ -7,6 +7,7 @@ import { Pulsante3D, premi } from 'comune/menu.js';
 import { ModuloMolecole } from './molecole.js';
 import { ModuloTavola } from './tavola.js';
 import { ModuloDna } from './dna.js';
+import { creaLaboratorio } from './laboratorio.js';
 
 // --- Dati scientifici (da dataset, vedi comune/dati/LICENZE-DATI.md) ---
 const elementi = await (await fetch('./dati/elementi.json')).json();
@@ -22,13 +23,13 @@ renderer.xr.enabled = true;
 document.body.appendChild(renderer.domElement);
 
 const scena = new THREE.Scene();
-scena.background = new THREE.Color(0x101828);
+scena.background = new THREE.Color(0xdfe6ec);   // colore del cielo fuori dalla stanza (non si vede, ma serve in AR/uscita)
 const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.05, 50);
 camera.position.set(0, 1.6, 0.6);               // vista desktop; in VR la camera la muove il visore
 
 scena.add(new THREE.HemisphereLight(0xffffff, 0x333355, 1.5));
 const luce = new THREE.DirectionalLight(0xffffff, 1.6); luce.position.set(1, 3, 2); scena.add(luce);
-scena.add(new THREE.GridHelper(8, 16, 0x3b5a96, 0x1d2c4a)); // pavimento: da' il senso dell'altezza
+scena.add(creaLaboratorio());   // sfondo: stanza di laboratorio (pavimento, pareti, bancone)
 
 // --- Pannello del riscontro (davanti e sopra gli atomi) ---
 const pannello = new PannelloTesto(1.0, 0.5, 1280);
@@ -145,7 +146,7 @@ if (supporto.vr) {
   }));
 }
 
-renderer.setAnimationLoop((t) => { modulo.aggiorna(); tavola.aggiorna(t / 1000); dna.aggiorna(t / 1000); renderer.render(scena, camera); });
+renderer.setAnimationLoop((t) => { controller.aggiorna(); modulo.aggiorna(); tavola.aggiorna(t / 1000); dna.aggiorna(t / 1000); renderer.render(scena, camera); });
 addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);

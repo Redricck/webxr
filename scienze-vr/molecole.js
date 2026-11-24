@@ -67,6 +67,7 @@ export class ModuloMolecole {
     const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: this._testoSimbolo(simbolo, dati.colore_cpk), depthTest: false }));
     sprite.scale.setScalar(raggio * 1.2);
     sprite.renderOrder = 10;
+    sprite.raycast = () => {};   // le etichette non si puntano (in VR il raycaster non ha camera: gli Sprite darebbero errore)
     g.add(sprite);
     g.position.copy(posizione);
     g.userData = { simbolo, valenza: dati.valenza, raggio, esterni: dati.elettroni_esterni };

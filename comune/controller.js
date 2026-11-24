@@ -12,18 +12,6 @@ function radiceAfferrabile(oggetto, lista) {
 }
 
 
-/** Primo pulsante visibile colpito dal raggio del controller (o null). */
-function colpitoPulsante(raycaster, controller, pulsanti, distanza) {
-  const visibili = pulsanti.filter((m) => { for (let o = m; o; o = o.parent) if (!o.visible) return false; return true; });
-  if (!visibili.length) return null;
-  const pos = new THREE.Vector3().setFromMatrixPosition(controller.matrixWorld);
-  raycaster.ray.origin.copy(pos);
-  raycaster.ray.direction.set(0, 0, -1).applyMatrix4(new THREE.Matrix4().extractRotation(controller.matrixWorld));
-  raycaster.far = distanza;
-  const colpi = raycaster.intersectObjects(visibili, false);
-  return colpi.length ? colpi[0].object : null;
-}
-
 export class GestoreControllerXR {
   /**
    * @param renderer, scena
@@ -45,15 +33,17 @@ export class GestoreControllerXR {
 
     for (let i = 0; i < 2; i++) {
       const c = renderer.xr.getController(i);
-      c.userData = { tenuto: null, sorgente: null, premuti: new Set() };
+      c.userData = { tenuto: null, sorgente: null, premuti: new Set(), linea: null, punta: null };
       // Raggio visibile: linea sottile davanti al controller + puntino all'estremita'.
       const linea = new THREE.Line(
         new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -this.distanzaRaggio)]),
         new THREE.LineBasicMaterial({ color: 0x66ccff })
       );
       c.add(linea);
+      c.userData.linea = linea;
       const palla = new THREE.Mesh(new THREE.SphereGeometry(0.012), new THREE.MeshBasicMaterial({ color: 0x66ccff }));
-      c.add(palla); // segna la punta del controller
+      c.add(palla); // segna dove il raggio tocca un oggetto (si sposta, vedi aggiorna())
+      c.userData.punta = palla;
       c.addEventListener('connected', (e) => { c.userData.sorgente = e.data; });
       // Sia grilletto (select) sia presa (squeeze) afferrano: l'utente usa quello che preferisce.
       for (const tipo of ['select', 'squeeze']) {
@@ -68,14 +58,16 @@ export class GestoreControllerXR {
   _premuto(c, tipo) {
     c.userData.premuti.add(tipo);
     if (c.userData.tenuto) return;
-    if (tipo === 'select') {   // un pulsante puntato ha la precedenza sulla presa degli atomi
-      const p = colpitoPulsante(this.raycaster, c, this.premibili(), this.distanzaRaggio);
-      if (p) { this._vibra(c, 0.2, 25); this.onPremi(p); return; }
+    if (tipo === 'select') {   // se il primo oggetto colpito dal raggio e' un pulsante, lo si preme
+      const colpo = this._primoColpo(c);
+      if (colpo && this.premibili().includes(colpo.object)) { this._vibra(c, 0.2, 25); this.onPremi(colpo.object); return; }
     }
     const oggetto = this._trova(c);
     if (!oggetto) return;
     c.attach(oggetto); // attach conserva la posizione nel mondo
     c.userData.tenuto = oggetto;
+    // Presa a distanza (col raggio): l'oggetto viene "tirato" davanti alla mano, cosi' si muove con precisione
+    if (oggetto.position.length() > this.raggioPresa) oggetto.position.set(0, 0, -0.12);
     this._vibra(c, 0.4, 40);
     this.onAfferra(oggetto);
   }
@@ -108,6 +100,44 @@ export class GestoreControllerXR {
     this.raycaster.far = this.distanzaRaggio;
     const colpi = this.raycaster.intersectObjects(lista.filter((o) => !this.controller.includes(o.parent)), true);
     return colpi.length ? radiceAfferrabile(colpi[0].object, lista) : null;
+  }
+
+  /**
+   * Primo oggetto colpito dal raggio del controller tra pulsanti visibili e oggetti afferrabili
+   * (null se non colpisce nulla entro distanzaRaggio). Restituisce { object, distance, point }.
+   */
+  _primoColpo(c) {
+    c.updateWorldMatrix(true, false);
+    const visibile = (m) => { for (let o = m; o; o = o.parent) if (!o.visible) return false; return true; };
+    const bersagli = this.premibili().filter(visibile)
+      .concat(this.afferrabili().filter((o) => !this.controller.includes(o.parent) && visibile(o)));
+    if (!bersagli.length) return null;
+    this.raycaster.ray.origin.setFromMatrixPosition(c.matrixWorld);
+    this.raycaster.ray.direction.set(0, 0, -1).transformDirection(c.matrixWorld);
+    this.raycaster.far = this.distanzaRaggio;
+    const colpi = this.raycaster.intersectObjects(bersagli, true);
+    return colpi.length ? colpi[0] : null;
+  }
+
+  /**
+   * Da chiamare a ogni fotogramma: accorcia il raggio fino al primo oggetto colpito, cosi' non
+   * attraversa pulsanti e oggetti. Il puntino si ferma sull'oggetto (giallo se si puo' premere/afferrare).
+   */
+  aggiorna() {
+    for (const c of this.controller) {
+      const { linea, punta, tenuto } = c.userData;
+      if (!c.visible) continue;
+      let dist = this.distanzaRaggio, colpito = false;
+      if (tenuto) dist = 0.05;                       // oggetto in mano: raggio cortissimo
+      else {
+        const colpo = this._primoColpo(c);
+        if (colpo) { dist = colpo.distance; colpito = true; }
+      }
+      linea.scale.z = dist / this.distanzaRaggio;    // la linea e' lunga distanzaRaggio: la si accorcia
+      punta.position.z = -dist;
+      punta.material.color.setHex(colpito ? 0xffd34d : 0x66ccff);
+      linea.material.color.setHex(colpito ? 0xffd34d : 0x66ccff);
+    }
   }
 
   _vibra(c, intensita, ms) {

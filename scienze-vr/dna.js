@@ -117,6 +117,7 @@ export class ModuloDna {
     const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
     const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, depthTest: false }));
     s.scale.setScalar(0.05); s.renderOrder = 10;
+    s.raycast = () => {};   // le etichette non si puntano (in VR il raycaster non ha camera: gli Sprite darebbero errore)
     return s;
   }
 
