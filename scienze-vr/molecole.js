@@ -28,6 +28,8 @@ export class ModuloMolecole {
     this.legami = [];            // { a, b, ordine, gruppo }
     this.obiettivo = 'H2O';
     this.avviso = null;          // messaggio temporaneo { testo, fino }
+    this.suoni = null;           // oggetto Audio (opzionale), assegnato dall'app
+    this._successo = false;      // true dopo il suono di obiettivo raggiunto (per non ripeterlo)
     this.ultimo = null;          // ultimo atomo toccato: decide quale molecola descrivere
     this.geoSfera = new THREE.SphereGeometry(1, 24, 16);
     this.geoCilindro = new THREE.CylinderGeometry(1, 1, 1, 10);
@@ -53,7 +55,7 @@ export class ModuloMolecole {
   pulisci() {
     for (const l of this.legami) l.gruppo.parent?.remove(l.gruppo);   // parent: potrebbero essere dentro un blocco tenuto in mano
     for (const a of this.atomi) a.parent?.remove(a);
-    this.atomi = []; this.legami = []; this.ultimo = null; this.avviso = null;
+    this.atomi = []; this.legami = []; this.ultimo = null; this.avviso = null; this._successo = false;
   }
 
   creaAtomo(simbolo, posizione) {
@@ -106,7 +108,7 @@ export class ModuloMolecole {
     tenuta.position.copy(centro);
     this.scena.add(tenuta);
     for (const a of molecola) tenuta.attach(a);
-    for (const l of this.legami) if (molecola.includes(l.a)) tenuta.attach(l.gruppo);
+    // I legami restano nella scena: si ridisegnano a ogni fotogramma tra le posizioni (mondo) degli atomi, quindi seguono la molecola
     return {
       oggetto: tenuta, scalabile: false,
       fine: () => {   // ridà atomi e legami alla scena (solo quelli ancora esistenti) e toglie il gruppo
@@ -166,7 +168,7 @@ export class ModuloMolecole {
   // ---------- Interazione ----------
 
   /** Chiamata quando un atomo viene afferrato. */
-  alAfferra(atomo) { this.ultimo = atomo; this.avviso = null; this.aggiornaPannello(); }
+  alAfferra(atomo) { this.ultimo = atomo; this.avviso = null; this.suoni?.suono('prendi'); this.aggiornaPannello(); }
 
   /** Chiamata quando un atomo viene rilasciato: decide rotture, agganci e riscontro. */
   alRilascio(atomo) {
@@ -196,6 +198,7 @@ export class ModuloMolecole {
       const liberiA = this.legamiLiberi(atomo), liberiB = this.legamiLiberi(candidato);
       if (liberiA <= 0 || liberiB <= 0) {
         const pieno = liberiA <= 0 ? atomo : candidato;
+        this.suoni?.suono('errore');
         this.avviso = { testo: `Troppi legami: ${this._nomeAtomo(pieno)} è già completo e non può legarsi ad altri atomi.`, colore: '#ff6b6b', fino: performance.now() + 6000 };
         // allontana un po' l'atomo rilasciato per segnalare il rifiuto
         const via = new THREE.Vector3().subVectors(pos, candidato.position).normalize();
@@ -205,6 +208,7 @@ export class ModuloMolecole {
         const dir = new THREE.Vector3().subVectors(pos, candidato.position).normalize();
         pos.copy(candidato.position).addScaledVector(dir, this.lunghezzaLegame(atomo, candidato, ordine));
         this._creaLegame(atomo, candidato, ordine);
+        this.suoni?.suono('legame');
         this._sistemaGeometria(candidato);
         this._sistemaGeometria(atomo);
         this.avviso = null;
@@ -328,6 +332,7 @@ export class ModuloMolecole {
         righe.push({ testo: `Molecola: ${formula}`, dimensione: 76, grassetto: true });
         if (noto) righe.push({ testo: `Corretto! ${noto.nome}`, dimensione: 62, grassetto: true, colore: '#6fe38a' });
         else righe.push({ testo: 'Tutti i legami sono completi, ma non è una delle molecole di questo livello.', dimensione: 48, colore: '#ffd166' });
+        if (this.formulaPiana(molecola) === this.obiettivo && !this._successo) { this._successo = true; this.suoni?.suono('successo'); }
         if (this.formulaPiana(molecola) === this.obiettivo) righe.push({ testo: 'Obiettivo raggiunto, bravo!', dimensione: 56, colore: '#6fe38a' });
       } else {
         righe.push({ testo: `Molecola in costruzione: ${formula}`, dimensione: 68, grassetto: true });

@@ -21,7 +21,9 @@ Segui `PUBBLICAZIONE.md`: alla fine avrai un indirizzo tipo `https://redricck.gi
 - **Levetta:** con un oggetto in mano, su/giù lo allontana/avvicina, destra/sinistra lo ruota.
 - **Due mani:** prendi con entrambe lo stesso blocco: allargando le mani ingrandisci una scheda, girando le mani ruoti il blocco.
 - **Tasto A/B (X/Y) o pulsante "Ricentra":** ricentra la vista (utile da seduti o dopo essersi girati) e riporta schede ed elica al loro posto. Succede anche da solo all'ingresso in VR.
-- Si vedono i controller (o le mani, se usi l'hand tracking).
+- **Blocchi che si prendono con la presa laterale:** il menu (puntando titolo o pulsanti), la tavola periodica (puntando una casella), il modello dell'atomo, le schede, la molecola intera, l'elica del DNA.
+- Si vedono i controller (modello del Pico 4) o le mani, se usi l'hand tracking.
+- **Audio:** musica ambient e suoni (clic, legame, errore, completamento). Il pulsante **Audio: sì/no** li spegne. L'audio parte al primo clic o pressione.
 
 ## 3. Cosa guardare e riferirmi
 - Il testo si legge bene? L'altezza di tavola e pannelli e' comoda?

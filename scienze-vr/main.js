@@ -4,6 +4,7 @@ import { rilevaSupportoXR, creaPulsanteXR } from 'comune/xr-supporto.js';
 import { GestoreControllerXR, ControlliDesktop } from 'comune/controller.js';
 import { PannelloTesto } from 'comune/pannello.js';
 import { creaVisualiInput } from 'comune/mani.js';
+import { Audio } from 'comune/audio.js';
 import { Pulsante3D, premi } from 'comune/menu.js';
 import { ModuloMolecole } from './molecole.js';
 import { ModuloTavola } from './tavola.js';
@@ -50,6 +51,11 @@ const dna = new ModuloDna(scena, datiDna, pannelloDna);
 // --- Modulo tavola periodica ---
 const tavola = new ModuloTavola(scena, datiTavola);
 
+// --- Audio: musica ambient + effetti (si sblocca al primo gesto dell'utente) ---
+const audio = new Audio();
+modulo.suoni = audio; dna.suoni = audio; tavola.suoni = audio;
+for (const ev of ['pointerdown', 'keydown', 'click']) addEventListener(ev, () => audio.sblocca());   // desktop e pulsante "Entra in VR"
+
 const guida = (html) => { document.getElementById('guida').innerHTML = html; };   // testo di aiuto per il desktop
 
 // --- Pulsanti 3D: per scegliere la molecola, ricominciare e tornare al menu ---
@@ -60,6 +66,19 @@ function pulsante(testo, w, h, pos, azione, gruppo, inclina = 0) {
   p.mesh.rotation.x = inclina;
   gruppo.add(p.mesh); tutti.push(p.mesh);
   return p;
+}
+
+// Pulsante "Audio" (musica ed effetti si accendono/spengono insieme): uno per gruppo, tutti sincronizzati
+const bottoniAudio = [];
+function aggiungiAudio(gruppo, pos, inclina) {
+  const p = pulsante('Audio: sì', 0.24, 0.12, pos, () => {
+    audio.sblocca();
+    const on = audio.alterna();
+    for (const b of bottoniAudio) b.imposta(on ? 'normale' : 'disattivo', on ? 'Audio: sì' : 'Audio: no');
+    if (on) audio.suono('click');
+  }, gruppo, inclina);
+  p.mesh.userData.nessunSuono = true;   // il suo suono lo gestisce lui
+  bottoniAudio.push(p);
 }
 
 // Gruppo "menu": schermata iniziale in VR
@@ -76,6 +95,10 @@ titolo.mesh.position.set(0, 1.95, -1.1); gruppoMenu.add(titolo.mesh);
 pulsante('1  Costruisci la molecola', 0.7, 0.16, new THREE.Vector3(0, 1.55, -1.0), () => apriMolecole('H2O'), gruppoMenu);
 pulsante('2  Tavola periodica', 0.7, 0.16, new THREE.Vector3(0, 1.35, -1.0), () => apriTavola(), gruppoMenu);
 pulsante('3  DNA', 0.7, 0.16, new THREE.Vector3(0, 1.15, -1.0), () => apriDna(), gruppoMenu);
+aggiungiAudio(gruppoMenu, new THREE.Vector3(0.55, 0.95, -1.0), 0);
+// Il gruppo menu ruota/si sposta attorno al proprio centro: origine al centro dei pulsanti
+gruppoMenu.position.set(0, 1.55, -1.05);
+for (const f of gruppoMenu.children) f.position.sub(gruppoMenu.position);
 
 // Gruppo "molecole": pannello di riscontro + barra di pulsanti
 const gruppoMol = new THREE.Group(); scena.add(gruppoMol);
@@ -88,11 +111,13 @@ Object.keys(molecoleNote).filter((k) => !k.startsWith('_')).forEach((formula, i)
 pulsante('Ricomincia', 0.28, 0.12, new THREE.Vector3(0.5, 0.85, -0.55), () => modulo.avvia(null), gruppoMol, -0.6);
 pulsante('Ricentra', 0.24, 0.12, new THREE.Vector3(-0.78, 0.85, -0.55), () => controller.richiediRicentra(), gruppoMol, -0.6);
 pulsante('Menu', 0.2, 0.12, new THREE.Vector3(0.78, 0.85, -0.55), () => apriMenu(), gruppoMol, -0.6);
+aggiungiAudio(gruppoMol, new THREE.Vector3(1.04, 0.85, -0.55), -0.6);
 
 // Pulsante "Menu" anche nella tavola periodica
 const gruppoTav = new THREE.Group(); scena.add(gruppoTav);
 pulsante('Menu', 0.2, 0.12, new THREE.Vector3(0.78, 0.85, -0.55), () => apriMenu(), gruppoTav, -0.6);
 pulsante('Ricentra', 0.24, 0.12, new THREE.Vector3(0.5, 0.85, -0.55), () => controller.richiediRicentra(), gruppoTav, -0.6);
+aggiungiAudio(gruppoTav, new THREE.Vector3(0.22, 0.85, -0.55), -0.6);
 tavola.celle.forEach((c) => tutti.push(c));   // anche le caselle si premono col raggio
 
 // Gruppo "DNA": pannello e pulsanti
@@ -101,6 +126,7 @@ gruppoDna.add(pannelloDna.mesh);
 pulsante('Nuova sequenza', 0.36, 0.12, new THREE.Vector3(0.45, 0.65, -0.5), () => dna.avvia(), gruppoDna, -0.6);
 pulsante('Menu', 0.2, 0.12, new THREE.Vector3(0.78, 0.65, -0.5), () => apriMenu(), gruppoDna, -0.6);
 pulsante('Ricentra', 0.24, 0.12, new THREE.Vector3(0.1, 0.65, -0.5), () => controller.richiediRicentra(), gruppoDna, -0.6);
+aggiungiAudio(gruppoDna, new THREE.Vector3(-0.18, 0.65, -0.5), -0.6);
 
 function apriDna() {
   gruppoMenu.visible = false; gruppoMol.visible = false; gruppoTav.visible = false; gruppoDna.visible = true;
@@ -134,30 +160,38 @@ apriMenu();
 const afferrabili = () => [...modulo.afferrabili, ...dna.afferrabili];
 const alAfferra = (o) => (dna.pezzi.includes(o) ? dna.alAfferra(o) : modulo.alAfferra(o));
 const alRilascio = (o) => (dna.pezzi.includes(o) ? dna.alRilascio(o) : modulo.alRilascio(o));
-const alPremi = (mesh) => premi(mesh);
+const alPremi = (mesh) => {
+  audio.sblocca();
+  if (!mesh.userData.nessunSuono && !mesh.userData.elemento) audio.suono('click');   // le caselle della tavola hanno il loro suono
+  premi(mesh);
+};
 
 // --- Oggetti grandi spostabili con la presa laterale: schede e blocchi (molecola, elica) ---
 const dentro = (o, radice) => { for (let x = o; x; x = x.parent) if (x === radice) return true; return false; };
 const schede = [pannello.mesh, pannelloDna.mesh, tavola.pannello.mesh];
-// Posizione iniziale delle schede, per poterle riportare al loro posto
-const posizioniSchede = schede.map((m) => ({ m, p: m.position.clone(), r: m.rotation.clone(), s: m.scale.clone() }));
+// Blocchi grandi spostabili con la presa laterale: tutto il menu, la tavola, il modello dell'atomo
+const gruppiBlocco = [gruppoMenu, tavola.tabella, tavola.atomo];
+// Posizione iniziale di schede e blocchi, per poterli riportare al loro posto con il tasto di ricentramento
+const iniziali = [...schede, ...gruppiBlocco].map((m) => ({ m, p: m.position.clone(), r: m.rotation.clone(), s: m.scale.clone() }));
 function riportaOggetti() {
-  for (const { m, p, r, s } of posizioniSchede) { m.position.copy(p); m.rotation.copy(r); m.scale.copy(s); }
+  for (const { m, p, r, s } of iniziali) { m.position.copy(p); m.rotation.copy(r); m.scale.copy(s); }
   dna.riportaElica();
 }
 function bloccoDi(colpito) {
   const molecola = modulo.blocco(colpito); if (molecola) return molecola;
   const elica = dna.blocco(colpito); if (elica) return elica;
   const scheda = schede.find((m) => dentro(colpito, m));
-  return scheda ? { oggetto: scheda, scalabile: true } : null;
+  if (scheda) return { oggetto: scheda, scalabile: true };
+  const gruppo = gruppiBlocco.find((g) => dentro(colpito, g));
+  return gruppo ? { oggetto: gruppo, scalabile: true } : null;
 }
 
 // --- Ingressi: controller del visore + mouse su desktop ---
 const visuali = creaVisualiInput(renderer, scena);     // modelli dei controller / mani in VR
 const controller = new GestoreControllerXR(renderer, scena, afferrabili, {
-  onAfferra: alAfferra, onRilascia: alRilascio,
+  onAfferra: (o) => { audio.sblocca(); alAfferra(o); }, onRilascia: alRilascio,
   premibili: () => tutti, onPremi: alPremi,
-  grandi: () => [...schede, dna.helice], blocco: bloccoDi,
+  grandi: () => [...schede, titolo.mesh, tavola.atomo, dna.helice], blocco: bloccoDi,
   onRicentra: riportaOggetti,
 });
 vistaDesktop = new ControlliDesktop(renderer.domElement, camera, scena, afferrabili, {
@@ -183,4 +217,4 @@ addEventListener('resize', () => {
 });
 
 // Per i test automatici da console / script (non serve all'utente).
-window.__scienzeVr = { modulo, tavola, dna, apriDna, camera, scena, THREE, tutti, apriMolecole, apriMenu, apriTavola };
+window.__scienzeVr = { audio, titolo, gruppoMenu, bloccoDi, grandi: () => [...schede, titolo.mesh, tavola.atomo, dna.helice], modulo, tavola, dna, apriDna, camera, scena, THREE, tutti, apriMolecole, apriMenu, apriTavola };

@@ -23,6 +23,10 @@ export class ModuloTavola {
     this.gruppo = new THREE.Group();
     this.gruppo.visible = false;
     scena.add(this.gruppo);
+    this.tabella = new THREE.Group();   // contiene le 118 caselle: si puo' afferrare e spostare tutta insieme
+    this.tabella.position.set(0, 1.9, POS.z);   // l'origine e' al centro della tavola: ruota e si ingrandisce attorno al suo centro
+    this.gruppo.add(this.tabella);
+    this.suoni = null;             // oggetto Audio (opzionale), assegnato dall'app
     this.celle = [];               // mesh delle caselle (sono i "premibili")
     this.selezionata = null;
     this._costruisciTavola();
@@ -49,10 +53,10 @@ export class ModuloTavola {
       const cella = this._disegnaCella(e);
       // Lantanidi e attinidi (righe 9-10) sono staccati dal corpo principale da un piccolo spazio
       const riga = e.riga >= 9 ? e.riga - 0.6 : e.riga;
-      cella.position.set(this._x(e.colonna), this._y(riga), POS.z);
+      cella.position.set(this._x(e.colonna), this._y(riga) - this.tabella.position.y, 0);   // coordinate relative al centro
       cella.userData.elemento = e;
       cella.userData.azione = () => this.seleziona(cella);   // letto da premi() in comune/menu.js
-      this.gruppo.add(cella);
+      this.tabella.add(cella);
       this.celle.push(cella);
     }
   }
@@ -72,9 +76,10 @@ export class ModuloTavola {
   // ---------- Selezione e informazioni ----------
 
   seleziona(cella) {
-    if (this.selezionata) { this.selezionata.scale.setScalar(1); this.selezionata.position.z = POS.z; }
+    this.suoni?.suono('tick');
+    if (this.selezionata) { this.selezionata.scale.setScalar(1); this.selezionata.position.z = 0; }
     this.selezionata = cella;
-    cella.scale.setScalar(1.18); cella.position.z = POS.z + 0.03;   // la casella scelta "esce" dalla tavola
+    cella.scale.setScalar(1.18); cella.position.z = 0.03;   // la casella scelta "esce" dalla tavola
     const e = cella.userData.elemento;
     const virg = (v, d = 3) => (v == null ? 'n.d.' : String(+v.toFixed(d)).replace('.', ','));
     const esterni = e.livelli[e.livelli.length - 1];

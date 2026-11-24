@@ -30,6 +30,7 @@ export class ModuloDna {
     this.pezzi = [];                    // pezzi afferrabili (figli della scena o dell'elica)
     this.slot = [];
     this.avviso = null;
+    this.suoni = null;                 // oggetto Audio (opzionale), assegnato dall'app
     this.geoCil = new THREE.CylinderGeometry(1, 1, 1, 8);
     this.geoSfera = new THREE.SphereGeometry(1, 14, 10);
     this.matDorsale = new THREE.MeshStandardMaterial({ color: 0x8fa3b8, roughness: 0.5 });
@@ -168,6 +169,7 @@ export class ModuloDna {
       this._liberaSlot(i);
     }
     this.avviso = null;
+    if (i == null) this.suoni?.suono('prendi');
     this.aggiornaPannello();
   }
 
@@ -184,6 +186,7 @@ export class ModuloDna {
       if (this.basi[s.base].complementare === b) this._aggancia(pezzo, migliore);
       else {
         this.avviso = { testo: `No: ${this.basi[s.base].nome} (${s.base}) si appaia con ${this.basi[s.base].complementare} (${this.basi[this.basi[s.base].complementare].nome}), non con ${b} (${this.basi[b].nome}).`, colore: '#ff6b6b' };
+        this.suoni?.suono('errore');
         pezzo.position.copy(pezzo.userData.casa);   // torna sul vassoio
         pezzo.quaternion.identity();
       }
@@ -218,6 +221,7 @@ export class ModuloDna {
         this.helice.add(c); this.slot[k].collegamento = c;
       }
     }
+    this.suoni?.suono(this.completa ? 'successo' : 'aggancio');
     this.avviso = { testo: `Giusto! ${s.base} e ${pezzo.userData.base} formano ${n} legami a idrogeno.`, colore: '#6fe38a' };
   }
 

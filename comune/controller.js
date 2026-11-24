@@ -46,6 +46,7 @@ export class GestoreControllerXR {
     this.raggioPresa = opzioni.raggioPresa ?? 0.12;     // presa "a mano": oggetto vicino al controller
     this.distanzaRaggio = opzioni.distanzaRaggio ?? 3;  // presa "a distanza" col raggio
     this.raycaster = new THREE.Raycaster();
+    this.raycaster.params.Line.threshold = 0.005;   // le linee (anelli dell'atomo) si colpiscono solo da vicino
     this.controller = [];
     this.dueMani = null;            // stato della presa con due mani
     this.daRicentrare = false;      // se true, ricentra appena arriva il primo fotogramma

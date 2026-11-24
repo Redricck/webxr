@@ -1,7 +1,9 @@
-// Mostra in VR i controller (modello semplice) oppure le mani, se il visore sta usando l'hand tracking.
-// Nessun file esterno da scaricare: il modello del controller e' fatto con tre forme semplici
-// e le mani sono 25 sfere, una per ogni articolazione. Condiviso da tutte le app.
+// Mostra in VR i controller oppure le mani, se il visore sta usando l'hand tracking.
+//  - Controller: modello 3D reale del dispositivo (es. Pico 4), preso dai profili WebXR copiati in comune/profili
+//    (nessun download da Internet). Se il modello non si carica resta un controller stilizzato fatto a mano.
+//  - Mani: 25 sfere, una per ogni articolazione. Condiviso da tutte le app.
 import * as THREE from 'three';
+import { XRControllerModelFactory } from './lib/three/jsm/webxr/XRControllerModelFactory.js';
 
 /** Controller stilizzato: impugnatura, anello superiore e grilletto. Il suo "davanti" e' -z. */
 function creaModelloController() {
@@ -25,13 +27,19 @@ function creaModelloController() {
  * Restituisce { aggiorna() }: da chiamare a ogni fotogramma per muovere le sfere delle mani.
  */
 export function creaVisualiInput(renderer, scena) {
-  const mani = [];
+  const mani = [], modelliVeri = [];
+  const fabbrica = new XRControllerModelFactory();
+  fabbrica.setPath(new URL('./profili', import.meta.url).href);   // profili e modelli copiati nel progetto
   const geoSfera = new THREE.SphereGeometry(1, 8, 6);
   const matMano = new THREE.MeshStandardMaterial({ color: 0xffd9b8, roughness: 0.7 });
   for (let i = 0; i < 2; i++) {
     // Controller: il "grip" e' la posizione dell'impugnatura (non esiste se l'utente usa le mani)
     const grip = renderer.xr.getControllerGrip(i);
-    grip.add(creaModelloController());
+    const semplice = creaModelloController();          // di ripiego, finche' (o se) il modello vero non arriva
+    grip.add(semplice);
+    const modello = fabbrica.createControllerModel(grip);   // scarica il profilo giusto (pico-4...) dalla cartella locale
+    grip.add(modello);
+    modelliVeri.push({ modello, semplice });
     scena.add(grip);
     // Mani: una sfera per articolazione (25), aggiornate da aggiorna()
     const mano = renderer.xr.getHand(i);
@@ -45,6 +53,8 @@ export function creaVisualiInput(renderer, scena) {
   const m = new THREE.Matrix4(), pos = new THREE.Vector3(), q = new THREE.Quaternion(), sc = new THREE.Vector3();
   return {
     aggiorna() {
+      // Quando il modello vero e' pronto si nasconde quello stilizzato
+      for (const { modello, semplice } of modelliVeri) if (modello.motionController && modello.children.length > 0 && semplice.visible) semplice.visible = false;   // children: arriva quando il file .glb e' caricato
       for (const { mano, sfere } of mani) {
         const giunti = Object.values(mano.joints || {}).filter((j) => j.visible);
         sfere.count = Math.min(giunti.length, 25);

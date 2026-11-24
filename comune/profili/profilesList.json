@@ -1,0 +1,14 @@
+{
+  "pico-4": {
+    "path": "pico-4/profile.json"
+  },
+  "pico-4u": {
+    "path": "pico-4u/profile.json"
+  },
+  "pico-neo3": {
+    "path": "pico-neo3/profile.json"
+  },
+  "generic-trigger-squeeze-thumbstick": {
+    "path": "generic-trigger-squeeze-thumbstick/profile.json"
+  }
+}
