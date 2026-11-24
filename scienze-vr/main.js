@@ -8,7 +8,7 @@ import { Audio } from 'comune/audio.js';
 import { Impostazioni } from 'comune/impostazioni.js';
 import { spostaVerticale } from 'comune/xr-supporto.js';
 // Numero di versione mostrato nel pannello Impostazioni: serve a capire se il visore ha caricato l'ultima pubblicazione
-const VERSIONE = 9;
+const VERSIONE = 10;
 import { Pulsante3D, premi } from 'comune/menu.js';
 import { ModuloMolecole } from './molecole.js';
 import { ModuloTavola } from './tavola.js';
@@ -29,12 +29,13 @@ renderer.xr.enabled = true;
 document.body.appendChild(renderer.domElement);
 
 const scena = new THREE.Scene();
-scena.background = new THREE.Color(0xdfe6ec);   // colore del cielo fuori dalla stanza (non si vede, ma serve in AR/uscita)
+scena.background = new THREE.Color(0x0f1a2e);   // colore del cielo fuori dalla stanza (non si vede, ma serve in AR/uscita)
 const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.05, 50);
 camera.position.set(0, 1.6, 0.6);               // vista desktop; in VR la camera la muove il visore
 
-scena.add(new THREE.HemisphereLight(0xffffff, 0x333355, 1.5));
-const luce = new THREE.DirectionalLight(0xffffff, 1.6); luce.position.set(1, 3, 2); scena.add(luce);
+scena.add(new THREE.HemisphereLight(0xeaf2ff, 0x3a3f58, 1.25));   // luce d'ambiente fredda dall'alto, calda-scura dal basso
+const luce = new THREE.DirectionalLight(0xfff2de, 1.7); luce.position.set(1.5, 3, 2); scena.add(luce);   // luce principale leggermente calda
+const luceFredda = new THREE.DirectionalLight(0x8fb8ff, 0.5); luceFredda.position.set(-2, 1.5, -1); scena.add(luceFredda);   // controluce azzurra
 scena.add(creaLaboratorio());   // sfondo: stanza di laboratorio (pavimento, pareti, bancone)
 
 // --- Pannello del riscontro (davanti e sopra gli atomi) ---
@@ -74,13 +75,14 @@ function pulsante(testo, w, h, pos, azione, gruppo, inclina = 0) {
 
 // Gruppo "menu": schermata iniziale in VR
 const gruppoMenu = new THREE.Group(); scena.add(gruppoMenu);
-const titolo = new PannelloTesto(1.0, 0.5, 1024);
+const titolo = new PannelloTesto(1.0, 0.58, 1024);
 titolo.imposta([
   { testo: 'Scienze VR', dimensione: 84, grassetto: true },
   { testo: 'Grilletto: premi un pulsante, prendi un atomo o un pezzo', dimensione: 34, colore: '#9ecbff' },
   { testo: 'Presa laterale: prendi la molecola intera, l\'elica o una scheda', dimensione: 34, colore: '#9ecbff' },
   { testo: 'Levetta: avvicina/allontana (su-giù) e ruota (destra-sinistra)', dimensione: 34, colore: '#9ecbff' },
   { testo: 'Tasto A/B (X/Y): ricentra la vista. Due mani: ruoti e ingrandisci', dimensione: 34, colore: '#9ecbff' },
+  { testo: 'Mani: pizzica pollice+indice (premi/afferra), pollice+medio (blocchi)', dimensione: 34, colore: '#7dffc0' },
 ]);
 titolo.mesh.position.set(0, 1.95, -1.1); gruppoMenu.add(titolo.mesh);
 pulsante('1  Costruisci la molecola', 0.7, 0.16, new THREE.Vector3(0, 1.55, -1.0), () => apriMolecole('H2O'), gruppoMenu);
@@ -116,7 +118,7 @@ pulsante('Menu', 0.2, 0.12, new THREE.Vector3(0.78, 0.65, -0.5), () => apriMenu(
 pulsante('Ricentra', 0.24, 0.12, new THREE.Vector3(0.1, 0.65, -0.5), () => controller.richiediRicentra(), gruppoDna, -0.6);
 
 // --- Impostazioni (rotellina sempre visibile): audio, volumi, posizione, distanza, mani ---
-const imp = new Impostazioni('scienze-vr-impostazioni', { audio: true, volMusica: 0.6, volEffetti: 0.8, seduto: true, distanza: 'normale', mani: true, alza: 0 });
+const imp = new Impostazioni('scienze-vr-impostazioni', { audio: true, volMusica: 0.6, volEffetti: 0.8, seduto: true, distanza: 'normale', input: 'auto', alza: 0 });
 audio.impostaAttivo(imp.get('audio')); audio.impostaVolumi(imp.get('volMusica'), imp.get('volEffetti'));
 const DISTANZE = { vicino: 0.5, normale: 0, lontano: -0.3 };   // metri di avvicinamento alla scena al ricentramento
 const gruppoImp = new THREE.Group(); scena.add(gruppoImp); gruppoImp.visible = false;
@@ -137,12 +139,12 @@ function aggiornaImp() {
   bImp.effetti.imposta('disattivo', 'Effetti ' + pc(imp.get('volEffetti')));
   bImp.posizione.imposta('normale', imp.get('seduto') ? 'Posizione: seduto' : 'Posizione: in piedi');
   bImp.distanza.imposta('normale', 'Distanza: ' + imp.get('distanza'));
-  const m = imp.get('mani');
-  bImp.mani.imposta(m ? 'normale' : 'spento', m ? 'Mani: sì' : 'Mani: no');
+  const modo = imp.get('input');
+  bImp.mani.imposta(modo === 'auto' ? 'normale' : 'selezionato', 'Input: ' + { auto: 'auto', mani: 'solo mani', controller: 'solo controller' }[modo]);
   const cm = Math.round(imp.get('alza') * 100);
   bImp.alza.imposta('disattivo', 'Altezza ' + (cm > 0 ? '+' : '') + cm + ' cm');
   audio.impostaAttivo(on); audio.impostaVolumi(imp.get('volMusica'), imp.get('volEffetti'));
-  controller.maniAttive = m;
+  controller.modoInput = modo; visuali.visibili = modo !== 'controller';
   // Seduto: occhi "virtuali" a 1,8 m, cosi' i contenuti stanno poco sotto lo sguardo. In piedi: altezza reale.
   controller.opzioniRicentra.altezzaFissa = imp.get('seduto') ? 1.8 : null;
   controller.opzioniRicentra.altezzaMinima = imp.get('seduto') ? 0 : 1.2;
@@ -158,7 +160,7 @@ bImp.posizione = pressImp('Posizione', 0.5, 0, 3, () => { imp.imposta('seduto', 
 const cambiaAlza = (d) => { const v = Math.round((imp.get('alza') + d) * 100) / 100; if (Math.abs(v) > 0.5) return; imp.imposta('alza', v); aggiornaImp(); spostaVerticale(renderer, d); audio.suono('tick'); };
 pressImp('▼', 0.1, -0.2, 4, () => cambiaAlza(-0.05)); bImp.alza = pressImp('Altezza', 0.3, 0, 4, () => {}); pressImp('▲', 0.1, 0.2, 4, () => cambiaAlza(0.05));
 bImp.distanza = pressImp('Distanza', 0.5, 0, 5, () => { const o = Object.keys(DISTANZE); imp.imposta('distanza', o[(o.indexOf(imp.get('distanza')) + 1) % o.length]); aggiornaImp(); });
-bImp.mani = pressImp('Mani', 0.5, 0, 6, () => { imp.imposta('mani', !imp.get('mani')); aggiornaImp(); });
+bImp.mani = pressImp('Input', 0.5, 0, 6, () => { const o = ['auto', 'mani', 'controller']; imp.imposta('input', o[(o.indexOf(imp.get('input')) + 1) % 3]); aggiornaImp(); });
 pressImp('Ricentra ora', 0.24, -0.13, 7, () => controller.richiediRicentra());
 pressImp('Chiudi', 0.24, 0.13, 7, () => { gruppoImp.visible = false; });
 // Il pannello ruota/si sposta attorno al proprio centro (si puo' prendere con la presa laterale)
@@ -284,7 +286,7 @@ function aggiornaStatoMani() {
     const nMani = src.filter((i) => i.hand).length, nCtrl = src.length - nMani;
     righe = [[`Mani viste: ${nMani}  Controller: ${nCtrl}`, nMani ? '#7dff9b' : '#ffd37d'],
              [concesso === false ? 'Hand tracking NON concesso' : 'Hand tracking: concesso', concesso === false ? '#ff8080' : '#ffffff'],
-             [nMani ? 'Pizzica per afferrare' : 'Spegni i controller', '#ffffff'], ['Versione ' + VERSIONE, '#9ecbff']];
+             [nMani ? 'Pizzica indice+pollice' : 'Mostra le mani al visore', '#ffffff'], ['Versione ' + VERSIONE, '#9ecbff']];
   }
   const testo = righe.map((r) => r[0]).join('|');
   if (testo !== ultimoStatoMani) { ultimoStatoMani = testo; statoMani.imposta(righe.map(([t, c]) => ({ testo: t, dimensione: 40, colore: c }))); }

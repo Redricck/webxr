@@ -8,7 +8,7 @@
 //  - ControlliDesktop:   mouse (trascina oggetti, ruota/zoom la vista) per provare senza visore.
 // Le due classi usano le stesse funzioni di callback: onAfferra(oggetto) e onRilascia(oggetto).
 import * as THREE from 'three';
-import { ricentraVista } from './xr-supporto.js';
+import { ricentraVista, posizioneGiunto } from './xr-supporto.js';
 
 /** Risale dal mesh colpito fino all'oggetto "afferrabile" registrato. */
 function radiceAfferrabile(oggetto, lista) {
@@ -49,7 +49,7 @@ export class GestoreControllerXR {
     this.raycaster.params.Line.threshold = 0.005;   // le linee (anelli dell'atomo) si colpiscono solo da vicino
     this.controller = [];
     this.dueMani = null;            // stato della presa con due mani
-    this.maniAttive = true;         // se false, i comandi dati con le mani (hand tracking) vengono ignorati
+    this.modoInput = 'auto';        // 'auto' (controller e mani), 'mani' (solo mani) o 'controller' (solo controller)
     this.opzioniRicentra = { altezzaFissa: 1.8, altezzaMinima: 0, avanti: 0, alza: 0 };   // modificabili dalle impostazioni
     this.daRicentrare = false;      // se true, ricentra appena arriva il primo fotogramma
     this.ultimoTempo = performance.now();
@@ -69,11 +69,37 @@ export class GestoreControllerXR {
       c.userData.punta = palla;
       c.addEventListener('connected', (e) => { c.userData.sorgente = e.data; });
       for (const tipo of ['select', 'squeeze']) {
-        c.addEventListener(tipo + 'start', () => this._premuto(c, tipo));
-        c.addEventListener(tipo + 'end', () => this._rilasciato(c, tipo));
+        // Con le mani i "select/squeeze" del browser non sono affidabili (es. Pico): il pizzico si calcola dai giunti (vedi _pizzico)
+        c.addEventListener(tipo + 'start', () => { if (!c.userData.sorgente?.hand) this._premuto(c, tipo); });
+        c.addEventListener(tipo + 'end', () => { if (!c.userData.sorgente?.hand) this._rilasciato(c, tipo); });
       }
       scena.add(c);
       this.controller.push(c);
+    }
+  }
+
+  /** True se l'input di questo controller e' escluso dalla scelta Mani/Controller/Auto. */
+  _ignorato(c) {
+    const mano = !!c.userData.sorgente?.hand;
+    return (mano && this.modoInput === 'controller') || (!mano && this.modoInput === 'mani');
+  }
+
+  /**
+   * Pizzico con le mani, calcolato dai giunti: pollice+indice = "grilletto" (select), pollice+medio = "presa" (squeeze).
+   * Soglie con isteresi (si pizzica sotto 2,5 cm, si lascia sopra 4,5 cm) per evitare tremolii.
+   */
+  _pizzico(c, frame) {
+    const mano = c.userData.sorgente?.hand;
+    const rif = this.renderer.xr.getReferenceSpace();
+    if (!mano || !rif || !frame) return;
+    const pollice = posizioneGiunto(frame, rif, mano, 'thumb-tip', this._p1 ||= new THREE.Vector3());
+    for (const [tipo, dito, nome] of [['select', 'index-finger-tip', 'indice'], ['squeeze', 'middle-finger-tip', 'medio']]) {
+      const d = pollice && posizioneGiunto(frame, rif, mano, dito, this._p2 ||= new THREE.Vector3());
+      const dist = d ? pollice.distanceTo(d) : Infinity;
+      const attivo = c.userData.premuti.has(tipo);
+      if (!attivo && dist < 0.025 && !this._ignorato(c)) this._premuto(c, tipo);
+      else if (attivo && dist > 0.045) this._rilasciato(c, tipo);
+      c.userData['pizzico_' + nome] = dist;
     }
   }
 
@@ -83,7 +109,7 @@ export class GestoreControllerXR {
   // ---------- Pressione e rilascio ----------
 
   _premuto(c, tipo) {
-    if (c.userData.sorgente?.hand && !this.maniAttive) return;   // mani disattivate nelle impostazioni
+    if (this._ignorato(c)) return;   // input escluso dalle impostazioni
     c.userData.premuti.add(tipo);
     if (c.userData.tenuto) return;
 
@@ -240,6 +266,7 @@ export class GestoreControllerXR {
     for (const c of this.controller) {
       const { linea, punta, tenuto } = c.userData;
       const gp = c.userData.sorgente?.gamepad;
+      this._pizzico(c, frame);
 
       // Tasto A/B (X/Y): ricentra la vista
       const premuto = !!(gp && (gp.buttons[4]?.pressed || gp.buttons[5]?.pressed));

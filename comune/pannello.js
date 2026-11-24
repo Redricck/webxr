@@ -1,5 +1,6 @@
 // Pannello di testo 3D (disegnato su un canvas), utile in VR dove non c'e' HTML.
 import * as THREE from 'three';
+import { FONT } from './menu.js';
 
 export class PannelloTesto {
   /**
@@ -23,19 +24,22 @@ export class PannelloTesto {
    * Riscrive il pannello. righe = [{ testo, colore?, dimensione? , grassetto? }]
    * Le righe troppo lunghe vanno a capo da sole.
    */
-  imposta(righe, sfondo = 'rgba(15,25,45,0.85)') {
+  imposta(righe, sfondo = null) {
     const { ctx, canvas } = this;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = sfondo;
-    ctx.beginPath();
-    ctx.roundRect(0, 0, canvas.width, canvas.height, 36);
-    ctx.fill();
+    // Sfondo: sfumatura blu notte con bordo azzurro e una sottile riga di accento in alto
+    const gr = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    gr.addColorStop(0, 'rgba(22,34,64,0.92)'); gr.addColorStop(1, 'rgba(10,17,36,0.92)');
+    ctx.fillStyle = sfondo || gr;
+    ctx.beginPath(); ctx.roundRect(2, 2, canvas.width - 4, canvas.height - 4, 36); ctx.fill();
+    ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(110,180,255,0.55)'; ctx.stroke();
+    ctx.fillStyle = 'rgba(74,168,255,0.9)'; ctx.beginPath(); ctx.roundRect(36, 10, canvas.width * 0.18, 7, 4); ctx.fill();
     ctx.textBaseline = 'top';
-    let y = 36;
+    let y = 40;
     const margine = 40;
     for (const r of righe) {
       const dim = r.dimensione || 44;
-      ctx.font = `${r.grassetto ? 'bold ' : ''}${dim}px sans-serif`;
+      ctx.font = `${r.grassetto ? 'bold ' : ''}${dim}px ${FONT}`;
       ctx.fillStyle = r.colore || '#ffffff';
       for (const linea of this._vaACapo(r.testo, canvas.width - 2 * margine)) {
         ctx.fillText(linea, margine, y);

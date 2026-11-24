@@ -87,3 +87,10 @@ export function spostaVerticale(renderer, d) {
   if (!rif || !renderer.xr.isPresenting) return;
   renderer.xr.setReferenceSpace(rif.getOffsetReferenceSpace(new XRRigidTransform({ x: 0, y: d, z: 0 })));
 }
+
+/** Posizione (nel riferimento attuale) di un giunto della mano, oppure null se non e' tracciato. */
+export function posizioneGiunto(frame, rif, mano, nome, fuori = new THREE.Vector3()) {
+  const g = mano.get(nome);
+  const p = g && frame.getJointPose(g, rif);
+  return p ? fuori.set(p.transform.position.x, p.transform.position.y, p.transform.position.z) : null;
+}

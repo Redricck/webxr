@@ -3,7 +3,14 @@
 import * as THREE from 'three';
 
 // 'disattivo' = non premibile; 'spento' = premibile ma rappresenta una funzione spenta (es. Audio: no)
-const COLORI = { normale: '#2f7cf6', selezionato: '#2f9e5a', disattivo: '#444b5c', spento: '#8a4b4b' };
+// Palette comune dell'app: [colore chiaro in alto, colore scuro in basso, bordo]
+const COLORI = {
+  normale: ['#4aa8ff', '#2166d8', '#a9d6ff'],
+  selezionato: ['#37d39a', '#168a68', '#b4f1da'],
+  disattivo: ['#4a5470', '#363e56', '#6a7595'],
+  spento: ['#b8667a', '#8a3f55', '#e9b2c0'],
+};
+export const FONT = "'Segoe UI', system-ui, -apple-system, Roboto, sans-serif";
 
 export class Pulsante3D {
   /**
@@ -33,16 +40,23 @@ export class Pulsante3D {
 
   disegna() {
     const { canvas } = this, x = canvas.getContext('2d');
-    x.fillStyle = COLORI[this.stato]; x.beginPath(); x.roundRect(0, 0, canvas.width, canvas.height, 40); x.fill();
+    const [alto, basso, bordo] = COLORI[this.stato] || COLORI.normale;
+    x.clearRect(0, 0, canvas.width, canvas.height);
+    const gr = x.createLinearGradient(0, 0, 0, canvas.height); gr.addColorStop(0, alto); gr.addColorStop(1, basso);
+    x.fillStyle = gr; x.beginPath(); x.roundRect(3, 3, canvas.width - 6, canvas.height - 6, 44); x.fill();
+    x.lineWidth = 6; x.strokeStyle = bordo; x.globalAlpha = 0.85; x.stroke(); x.globalAlpha = 1;
+    // Riflesso chiaro nella meta' alta, per dare volume
+    x.fillStyle = 'rgba(255,255,255,0.14)'; x.beginPath(); x.roundRect(12, 10, canvas.width - 24, canvas.height * 0.42, [36, 36, 12, 12]); x.fill();
     if (this.icona === 'ingranaggio') { this._ingranaggio(x, canvas.width / 2, canvas.height / 2, canvas.height * 0.36); this.texture.needsUpdate = true; return; }
-    x.fillStyle = this.stato === 'disattivo' ? '#99a' : '#fff';
+    x.fillStyle = this.stato === 'disattivo' ? '#b4bcd2' : '#fff';
     x.textAlign = 'center'; x.textBaseline = 'middle';
     const righe = this.testo.split('\n');
     let dim = Math.min(76, (canvas.height * 0.7) / righe.length);
-    x.font = `bold ${dim}px sans-serif`;
+    x.font = `bold ${dim}px ${FONT}`;
+    x.shadowColor = 'rgba(0,0,0,0.35)'; x.shadowBlur = 6; x.shadowOffsetY = 3;
     // Riduce la scritta finche' la riga piu' lunga entra nel pulsante
     const larga = Math.max(...righe.map((r) => x.measureText(r).width));
-    if (larga > canvas.width * 0.9) { dim *= canvas.width * 0.9 / larga; x.font = `bold ${dim}px sans-serif`; }
+    if (larga > canvas.width * 0.9) { dim *= canvas.width * 0.9 / larga; x.font = `bold ${dim}px ${FONT}`; }
     righe.forEach((r, i) => x.fillText(r, canvas.width / 2, canvas.height / 2 + (i - (righe.length - 1) / 2) * dim * 1.2));
     this.texture.needsUpdate = true;
   }
@@ -50,7 +64,7 @@ export class Pulsante3D {
 
 /** Disegna una rotellina (ingranaggio) bianca: 8 denti attorno a un cerchio con un foro. */
 Pulsante3D.prototype._ingranaggio = function (x, cx, cy, r) {
-  x.fillStyle = '#fff';
+  x.fillStyle = '#fff'; x.shadowColor = 'rgba(0,0,0,0.35)'; x.shadowBlur = 6; x.shadowOffsetY = 3;
   for (let i = 0; i < 8; i++) {
     x.save(); x.translate(cx, cy); x.rotate(i * Math.PI / 4);
     x.fillRect(-r * 0.2, -r * 1.12, r * 0.4, r * 0.45);

@@ -44,6 +44,8 @@ Poi nel Browser del Pico apri `http://localhost:8000/scienze-vr/` (su `localhost
 In VR la rotellina resta sempre in alto a destra nello sguardo (su desktop: pulsante "Impostazioni" in alto a destra). Il pannello si apre davanti agli occhi: audio sì/no, volume musica ed effetti, posizione seduto/in piedi, altezza dei contenuti (▼ ▲, subito), distanza di partenza, mani sì/no, ricentra. Le scelte restano salvate nel browser. Il titolo mostra il numero di versione (v. N): se non è l'ultimo, ricarica la pagina (GitHub Pages tiene i file in cache fino a 10 minuti).
 
 ## Mani (hand tracking)
-1. Impostazioni del Pico: cerca "Tracciamento delle mani" (in "Laboratorio" o "Interazione", dipende dalla versione) e attivalo, insieme al passaggio automatico controller/mani se c'è.
-2. Spegni i controller (tieni premuto il tasto Pico/Home qualche secondo) o lasciali fermi: il visore passa alle mani.
-3. Nel pannello Impostazioni la riga in basso dice: "Mani viste" (funziona), "Nessuna mano vista" (il visore non le passa al browser) oppure "NON concesso" (il browser non dà l'hand tracking alle pagine web).
+- Impostazioni > riga "Input": auto (controller e mani), solo mani, solo controller.
+- Le mani si vedono con ossa e dita; pallino azzurro tra pollice e indice, verde quando pizzichi.
+- Pizzico pollice+indice = grilletto (premi, afferra); pollice+medio = presa (blocchi). Il pizzico è calcolato dai giunti, non dagli eventi del browser.
+- Il pannello Impostazioni dice quante mani e quanti controller il browser vede ("Mani viste: N"). Se resta 0, il Pico Browser non passa le mani alla pagina: non è un problema dell'app.
+- Sorgente: il Pico 4 Ultra dichiara "WebXR Hand Input" (https://developer.picoxr.com/pico4-ultra/); per il Pico 4 base non ho trovato documentazione.
