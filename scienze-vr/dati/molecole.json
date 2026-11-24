@@ -46,5 +46,70 @@
    "H",
    "O"
   ]
+ },
+ "H2": {
+  "nome": "Idrogeno (molecola di idrogeno)",
+  "legami": "1 legame singolo H-H",
+  "atomi_iniziali": [
+   "H",
+   "H",
+   "O",
+   "C"
+  ]
+ },
+ "O2": {
+  "nome": "Ossigeno (molecola di ossigeno)",
+  "legami": "1 doppio legame O=O",
+  "atomi_iniziali": [
+   "O",
+   "O",
+   "H",
+   "N"
+  ]
+ },
+ "N2": {
+  "nome": "Azoto (molecola di azoto)",
+  "legami": "1 triplo legame N≡N",
+  "atomi_iniziali": [
+   "N",
+   "N",
+   "H",
+   "O"
+  ]
+ },
+ "HCN": {
+  "nome": "Acido cianidrico",
+  "legami": "1 legame singolo H-C e 1 triplo C≡N",
+  "atomi_iniziali": [
+   "H",
+   "C",
+   "N",
+   "O",
+   "H"
+  ]
+ },
+ "CH2O": {
+  "nome": "Formaldeide",
+  "legami": "2 legami singoli C-H e 1 doppio C=O",
+  "atomi_iniziali": [
+   "C",
+   "H",
+   "O",
+   "H",
+   "N",
+   "H"
+  ]
+ },
+ "C2H2": {
+  "nome": "Acetilene (etino)",
+  "legami": "2 legami singoli C-H e 1 triplo C≡C",
+  "atomi_iniziali": [
+   "C",
+   "C",
+   "H",
+   "H",
+   "O",
+   "N"
+  ]
  }
 }

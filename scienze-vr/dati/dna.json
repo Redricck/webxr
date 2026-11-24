@@ -1,14 +1,52 @@
 {
-  "_nota": "Dati del modulo 3 (DNA). Le regole di appaiamento sono standard di manuale (Watson-Crick). I parametri della doppia elica sono valori di manuale del DNA di forma B. NON provengono da un dataset scaricato (la rete non permetteva l'accesso a Wikipedia/NCBI): vanno ricontrollati da un insegnante o su una fonte aperta, ad es. la voce 'Nucleic acid double helix' di Wikipedia (CC BY-SA).",
-  "basi": {
-    "A": { "nome": "adenina",  "tipo": "purina",      "complementare": "T", "legami_idrogeno": 2, "colore": "#4caf50" },
-    "T": { "nome": "timina",   "tipo": "pirimidina",  "complementare": "A", "legami_idrogeno": 2, "colore": "#e53935" },
-    "C": { "nome": "citosina", "tipo": "pirimidina",  "complementare": "G", "legami_idrogeno": 3, "colore": "#fdd835" },
-    "G": { "nome": "guanina",  "tipo": "purina",      "complementare": "C", "legami_idrogeno": 3, "colore": "#1e88e5" }
+ "_nota": "Dati del modulo 3 (DNA). Le regole di appaiamento sono standard di manuale (Watson-Crick). I parametri della doppia elica sono valori di manuale del DNA di forma B. NON provengono da un dataset scaricato (la rete non permetteva l'accesso a Wikipedia/NCBI): vanno ricontrollati da un insegnante o su una fonte aperta, ad es. la voce 'Nucleic acid double helix' di Wikipedia (CC BY-SA).",
+ "basi": {
+  "A": {
+   "nome": "adenina",
+   "tipo": "purina",
+   "complementare": "T",
+   "legami_idrogeno": 2,
+   "colore": "#4caf50"
   },
-  "dna_forma_B": {
-    "passo_per_coppia_nm": 0.34,
-    "coppie_per_giro": 10.5,
-    "diametro_nm": 2.0
+  "T": {
+   "nome": "timina",
+   "tipo": "pirimidina",
+   "complementare": "A",
+   "legami_idrogeno": 2,
+   "colore": "#e53935"
+  },
+  "C": {
+   "nome": "citosina",
+   "tipo": "pirimidina",
+   "complementare": "G",
+   "legami_idrogeno": 3,
+   "colore": "#fdd835"
+  },
+  "G": {
+   "nome": "guanina",
+   "tipo": "purina",
+   "complementare": "C",
+   "legami_idrogeno": 3,
+   "colore": "#1e88e5"
+  },
+  "U": {
+   "nome": "uracile",
+   "tipo": "pirimidina",
+   "complementare": "A",
+   "legami_idrogeno": 2,
+   "colore": "#ff9800"
   }
+ },
+ "dna_forma_B": {
+  "passo_per_coppia_nm": 0.34,
+  "coppie_per_giro": 10.5,
+  "diametro_nm": 2.0
+ },
+ "rna_trascrizione": {
+  "_nota": "Nella trascrizione l'RNA copia il filamento di DNA: A->U, T->A, C->G, G->C (valori di manuale, da verificare come il resto).",
+  "A": "U",
+  "T": "A",
+  "C": "G",
+  "G": "C"
+ }
 }

@@ -31,6 +31,8 @@ Progetto unico per le app didattiche XR (realtà virtuale/aumentata nel browser)
 - Modulo DNA (`scienze-vr/dati/dna.json`): regole di appaiamento e parametri dell'elica sono valori di manuale, non da un dataset scaricato (rete non permessa). Da verificare con una fonte aperta.
 - Nel modulo molecole il legame ha sempre l'ordine massimo possibile (C+O = doppio): lo studente non sceglie singolo/doppio.
 - Hand tracking: sul Pico 4 di Riccardo (browser Pico) l'hand tracking NON arriva alla pagina: con il tracciamento attivo e i controller spenti il pannello dice "Mani viste: 0" (provato 2026-11-24, v10). L'app lo supporta come extra (ossa, pizzico dai giunti, Input auto/mani/controller) ma i controller restano il modo principale; 'solo mani' non esclude i controller se non si vedono mani.
+- Contenuti didattici scritti da Claude, da far controllare a un insegnante: descrizioni delle famiglie (`FAMIGLIE` in `scienze-vr/tavola.js`), mappa DNA->RNA e testi di replicazione/trascrizione (`scienze-vr/dna.js`, `dati/dna.json`), elenco molecole e atomi-esca (`dati/molecole.json`).
+- Modalità sfida (v12): molecole (5 molecole senza formula, 2 punti se senza errori), tavola (5 domande, 2 punti al primo tentativo, 1 al secondo), DNA (stelle in base agli errori). Le stelle migliori sono salvate nel browser (`scienze-vr-progressi`) e mostrate nel menu.
 - Mai provato sul Pico 4: tutto verificato solo su desktop (Chromium).
 
 ## Interazione in VR (comune/controller.js, comune/mani.js)

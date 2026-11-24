@@ -49,3 +49,9 @@ La rotellina è l'ultimo pulsante di ogni schermata (sotto "3 DNA" nel menu, in 
 - Pizzico pollice+indice = grilletto (premi, afferra); pollice+medio = presa (blocchi). Il pizzico è calcolato dai giunti, non dagli eventi del browser.
 - Il pannello Impostazioni dice quante mani e quanti controller il browser vede ("Mani viste: N"). Se resta 0, il Pico Browser non passa le mani alla pagina: non è un problema dell'app.
 - Sorgente: il Pico 4 Ultra dichiara "WebXR Hand Input" (https://developer.picoxr.com/pico4-ultra/); per il Pico 4 base non ho trovato documentazione.
+
+## Sfide e novità didattiche (v12)
+- Molecole: 10 molecole (H₂O, CO₂, CH₄, NH₃, H₂, O₂, N₂, HCN, CH₂O, C₂H₂). "Sfida" = 5 molecole da costruire dal solo nome, con atomi di troppo.
+- Tavola: "Famiglie" evidenzia una famiglia e la spiega; "Sfida" = 5 domande da risolvere toccando le caselle.
+- DNA: il pulsante a sinistra passa da Replicazione a Trascrizione RNA (A→U, T→A, C→G, G→C). Stelle in base agli errori.
+- Le stelle migliori compaiono nel menu.

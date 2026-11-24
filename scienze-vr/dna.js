@@ -30,6 +30,10 @@ export class ModuloDna {
     this.pezzi = [];                    // pezzi afferrabili (figli della scena o dell'elica)
     this.slot = [];
     this.avviso = null;
+    this.modo = 'replicazione';        // 'replicazione' (appaia A-T, C-G) o 'trascrizione' (RNA: A-U, T-A, C-G, G-C)
+    this.errori = 0;                   // pezzi sbagliati in questa sequenza (servono per le stelle)
+    this.alCompleta = null;            // (modo, stelle) chiamata quando la doppia elica e' completa
+    this._finita = false;
     this.suoni = null;                 // oggetto Audio (opzionale), assegnato dall'app
     this.geoCil = new THREE.CylinderGeometry(1, 1, 1, 8);
     this.geoSfera = new THREE.SphereGeometry(1, 14, 10);
@@ -38,13 +42,17 @@ export class ModuloDna {
 
   get afferrabili() { return this.pezzi; }
 
+  /** Base che deve appaiarsi a `b`: in DNA la complementare, in trascrizione quella dell'RNA (A->U). */
+  attesa(b) { return this.modo === 'trascrizione' ? this.dati.rna_trascrizione[b] : this.basi[b].complementare; }
+
   // ---------- Costruzione ----------
 
   /** Nuovo gioco: sequenza casuale di N basi e pezzi complementari mescolati sul vassoio. */
-  avvia() {
+  avvia(modo = this.modo) {
+    this.modo = modo; this.errori = 0; this._finita = false;
     this.pulisci();
     this.riportaElica(); this.helice.visible = true;
-    const lettere = Object.keys(this.basi);
+    const lettere = ['A', 'T', 'C', 'G'];   // il filamento fisso e' sempre DNA
     this.sequenza = Array.from({ length: N }, () => lettere[Math.floor(Math.random() * 4)]);
 
     // Punti dei due filamenti (coordinate locali dell'elica)
@@ -68,7 +76,7 @@ export class ModuloDna {
     });
 
     // Pezzi complementari, in ordine casuale, su 3 file davanti allo studente
-    const compl = this.sequenza.map((b) => this.basi[b].complementare);
+    const compl = this.sequenza.map((b) => this.attesa(b));
     for (let i = compl.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [compl[i], compl[j]] = [compl[j], compl[i]]; }
     compl.forEach((b, k) => {
       const pezzo = this._creaPezzo(b);
@@ -183,9 +191,11 @@ export class ModuloDna {
     });
     if (migliore >= 0) {
       const s = this.slot[migliore], b = pezzo.userData.base;
-      if (this.basi[s.base].complementare === b) this._aggancia(pezzo, migliore);
+      if (this.attesa(s.base) === b) this._aggancia(pezzo, migliore);
       else {
-        this.avviso = { testo: `No: ${this.basi[s.base].nome} (${s.base}) si appaia con ${this.basi[s.base].complementare} (${this.basi[this.basi[s.base].complementare].nome}), non con ${b} (${this.basi[b].nome}).`, colore: '#ff6b6b' };
+        const giusta = this.attesa(s.base);
+        this.errori++;
+        this.avviso = { testo: `No: ${this.basi[s.base].nome} (${s.base}) si appaia con ${giusta} (${this.basi[giusta].nome}), non con ${b} (${this.basi[b].nome}).`, colore: '#ff6b6b' };
         this.suoni?.suono('errore');
         pezzo.position.copy(pezzo.userData.casa);   // torna sul vassoio
         pezzo.quaternion.identity();
@@ -222,6 +232,10 @@ export class ModuloDna {
       }
     }
     this.suoni?.suono(this.completa ? 'successo' : 'aggancio');
+    if (this.completa && !this._finita) {
+      this._finita = true;
+      this.alCompleta?.(this.modo, this.errori === 0 ? 3 : this.errori <= 2 ? 2 : 1);
+    }
     this.avviso = { testo: `Giusto! ${s.base} e ${pezzo.userData.base} formano ${n} legami a idrogeno.`, colore: '#6fe38a' };
   }
 
@@ -242,14 +256,18 @@ export class ModuloDna {
 
   aggiornaPannello() {
     const fatte = this.slot.filter((s) => s.pezzo).length;
+    const rna = this.modo === 'trascrizione';
     const righe = [
-      { testo: 'Completa la doppia elica', dimensione: 56, grassetto: true },
-      { testo: 'Appoggia ogni pezzo sulla base che gli si appaia: A con T, C con G.', dimensione: 42, colore: '#9ecbff' },
-      { testo: `Coppie corrette: ${fatte} su ${N}`, dimensione: 48, grassetto: true },
+      { testo: rna ? 'Trascrizione: da DNA a RNA' : 'Replicazione: completa la doppia elica', dimensione: 54, grassetto: true },
+      { testo: rna ? 'L\'RNA copia il DNA ma al posto della timina (T) usa l\'uracile (U): A→U, T→A, C→G, G→C.'
+                   : 'Il filamento nuovo si costruisce appaiando le basi: A con T, C con G.', dimensione: 40, colore: '#9ecbff' },
+      { testo: `Coppie corrette: ${fatte} su ${N} · errori: ${this.errori}`, dimensione: 46, grassetto: true },
     ];
     if (this.completa) {
-      righe.push({ testo: 'Doppia elica completa, bravo!', dimensione: 52, grassetto: true, colore: '#6fe38a' });
-      righe.push({ testo: 'A-T: 2 legami a idrogeno · C-G: 3 legami a idrogeno. Le basi grosse (A, G) sono purine, quelle sottili (C, T) pirimidine.', dimensione: 38 });
+      const st = this.errori === 0 ? 3 : this.errori <= 2 ? 2 : 1;
+      righe.push({ testo: `${rna ? 'Filamento di RNA completo' : 'Doppia elica completa'}, bravo!  ${'★'.repeat(st)}${'☆'.repeat(3 - st)}`, dimensione: 50, grassetto: true, colore: '#6fe38a' });
+      righe.push({ testo: rna ? 'Nella cellula la trascrizione produce l\'mRNA, che poi viene "letto" per costruire le proteine.'
+                              : 'A-T: 2 legami a idrogeno · C-G: 3 legami a idrogeno. Le basi grosse (A, G) sono purine, quelle sottili (C, T) pirimidine.', dimensione: 38 });
     } else if (this.avviso) righe.push({ testo: this.avviso.testo, dimensione: 42, colore: this.avviso.colore });
     this.pannello.imposta(righe);
   }

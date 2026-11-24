@@ -14,6 +14,13 @@ const FATTORE_ROTTURA = 1.6;      // oltre questa distanza (in lunghezze di lega
 const MARGINE_AGGANCIO = 0.09;    // m: distanza oltre la lunghezza del legame entro cui due atomi si legano
 const ORDINE_FORMULA = ['C', 'N', 'H', 'O']; // convenzione di scrittura: CH4, NH3, H2O, CO2
 const PEDICI = '₀₁₂₃₄₅₆₇₈₉';
+/** Chiave canonica di una formula (conta gli atomi): HCN e CNH sono la stessa molecola. */
+const chiaveFormula = (f) => {
+  const n = {};
+  for (const m of f.matchAll(/([A-Z][a-z]?)(\d*)/g)) n[m[1]] = (n[m[1]] || 0) + +(m[2] || 1);
+  return Object.keys(n).sort().map((k) => k + n[k]).join('');
+};
+export const mescola = (a) => { const b = [...a]; for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; } return b; };
 
 export class ModuloMolecole {
   /**
@@ -29,6 +36,9 @@ export class ModuloMolecole {
     this.obiettivo = 'H2O';
     this.avviso = null;          // messaggio temporaneo { testo, fino }
     this.suoni = null;           // oggetto Audio (opzionale), assegnato dall'app
+    this.sfida = null;           // { round, totale, punti, elenco, errori } quando la modalita' sfida e' attiva
+    this.alFineSfida = null;     // (punti, massimo) chiamata a fine sfida (l'app salva le stelle)
+    this._timer = null;
     this._successo = false;      // true dopo il suono di obiettivo raggiunto (per non ripeterlo)
     this.ultimo = null;          // ultimo atomo toccato: decide quale molecola descrivere
     this.geoSfera = new THREE.SphereGeometry(1, 24, 16);
@@ -52,7 +62,26 @@ export class ModuloMolecole {
     this.aggiornaPannello();
   }
 
+  // ---------- Sfida: 5 molecole da costruire, senza vedere la formula ----------
+  avviaSfida(totale = 5) {
+    const elenco = mescola(Object.keys(this.note).filter((k) => !k.startsWith('_'))).slice(0, totale);
+    this.sfida = { round: 0, totale: elenco.length, punti: 0, elenco, errori: 0, finita: false };
+    this.avvia(null, undefined, elenco[0]);
+  }
+  fermaSfida() { clearTimeout(this._timer); this.sfida = null; this.avvia(null, undefined, this.obiettivo); }
+  _successoSfida() {
+    const sf = this.sfida;
+    sf.punti += sf.errori === 0 ? 2 : 1;      // 2 punti se senza errori, 1 se hai sbagliato qualcosa
+    this._timer = setTimeout(() => {
+      if (!this.sfida) return;
+      sf.round++; sf.errori = 0;
+      if (sf.round >= sf.totale) { sf.finita = true; this.alFineSfida?.(sf.punti, sf.totale * 2); this.aggiornaPannello(); }
+      else this.avvia(null, undefined, sf.elenco[sf.round]);
+    }, 2200);
+  }
+
   pulisci() {
+    clearTimeout(this._timer);
     for (const l of this.legami) l.gruppo.parent?.remove(l.gruppo);   // parent: potrebbero essere dentro un blocco tenuto in mano
     for (const a of this.atomi) a.parent?.remove(a);
     this.atomi = []; this.legami = []; this.ultimo = null; this.avviso = null; this._successo = false;
@@ -237,7 +266,17 @@ export class ModuloMolecole {
       const i = ORDINE_FORMULA.indexOf(x), j = ORDINE_FORMULA.indexOf(y);
       return (i < 0 ? 99 : i) - (j < 0 ? 99 : j) || x.localeCompare(y);
     });
-    return ordine.map((s) => s + (n[s] > 1 ? [...String(n[s])].map((c) => PEDICI[c]).join('') : '')).join('');
+    const base = ordine.map((s) => s + (n[s] > 1 ? [...String(n[s])].map((c) => PEDICI[c]).join('') : '')).join('');
+    // Se e' una molecola nota si usa la scrittura convenzionale (HCN, non CNH)
+    const piana = base.replace(/[₀-₉]/g, (c) => PEDICI.indexOf(c));
+    const nota = this.noteDa(piana);
+    return nota ? this._pedici(nota) : base;
+  }
+
+  /** Nome (chiave) della molecola nota con gli stessi atomi di `formulaPiana`, oppure null. */
+  noteDa(piana) {
+    const k = chiaveFormula(piana);
+    return Object.keys(this.note).find((f) => !f.startsWith('_') && chiaveFormula(f) === k) || null;
   }
 
   /** Formula senza pedici, es. H2O: serve per cercarla nelle molecole note. */
@@ -318,7 +357,21 @@ export class ModuloMolecole {
   aggiornaPannello() {
     const righe = [];
     const obiettivoNome = this.note[this.obiettivo]?.nome || this.obiettivo;
-    righe.push({ testo: `Obiettivo: costruisci ${obiettivoNome.toLowerCase()} (${this._pedici(this.obiettivo)})`, dimensione: 50, colore: '#9ecbff' });
+    const sf = this.sfida;
+    if (sf && sf.finita) {
+      const max = sf.totale * 2, st = sf.punti >= max * 0.9 ? 3 : sf.punti >= max * 0.6 ? 2 : sf.punti >= max * 0.3 ? 1 : 0;
+      this.pannello.imposta([
+        { testo: 'Sfida finita!', dimensione: 76, grassetto: true, colore: '#ffd166' },
+        { testo: `Punti: ${sf.punti} su ${max}`, dimensione: 64, grassetto: true },
+        { testo: '★'.repeat(st) + '☆'.repeat(3 - st), dimensione: 110, colore: '#ffd166' },
+        { testo: 'Premi "Sfida" per rifarla oppure scegli una molecola per esercitarti.', dimensione: 42, colore: '#9ecbff' },
+      ]);
+      return;
+    }
+    if (sf) {
+      righe.push({ testo: `Sfida ${sf.round + 1} di ${sf.totale} · punti ${sf.punti}`, dimensione: 44, colore: '#ffd166', grassetto: true });
+      righe.push({ testo: `Costruisci: ${obiettivoNome.toLowerCase()}. Scegli tu gli atomi giusti!`, dimensione: 50, colore: '#9ecbff' });
+    } else righe.push({ testo: `Obiettivo: costruisci ${obiettivoNome.toLowerCase()} (${this._pedici(this.obiettivo)})`, dimensione: 50, colore: '#9ecbff' });
 
     const base = this.ultimo && this.atomi.includes(this.ultimo) ? this.ultimo : null;
     const molecola = base ? this.molecolaDi(base) : [];
@@ -330,9 +383,11 @@ export class ModuloMolecole {
       if (liberi.length === 0) {
         const noto = this.note[this.formulaPiana(molecola)];
         righe.push({ testo: `Molecola: ${formula}`, dimensione: 76, grassetto: true });
-        if (noto) righe.push({ testo: `Corretto! ${noto.nome}`, dimensione: 62, grassetto: true, colore: '#6fe38a' });
+        if (noto && this.formulaPiana(molecola) === this.obiettivo) righe.push({ testo: `Corretto! ${noto.nome}`, dimensione: 62, grassetto: true, colore: '#6fe38a' });
+        else if (noto) righe.push({ testo: `Questa è una molecola vera (${noto.nome}), ma non è quella richiesta.`, dimensione: 48, colore: '#ffd166' });
         else righe.push({ testo: 'Tutti i legami sono completi, ma non è una delle molecole di questo livello.', dimensione: 48, colore: '#ffd166' });
-        if (this.formulaPiana(molecola) === this.obiettivo && !this._successo) { this._successo = true; this.suoni?.suono('successo'); }
+        if (this.formulaPiana(molecola) === this.obiettivo && !this._successo) { this._successo = true; this.suoni?.suono('successo'); if (this.sfida) this._successoSfida(); }
+        else if (this.sfida && this.formulaPiana(molecola) !== this.obiettivo && this._ultimaChiusa !== this.formulaPiana(molecola)) { this.sfida.errori++; this._ultimaChiusa = this.formulaPiana(molecola); }
         if (this.formulaPiana(molecola) === this.obiettivo) righe.push({ testo: 'Obiettivo raggiunto, bravo!', dimensione: 56, colore: '#6fe38a' });
       } else {
         righe.push({ testo: `Molecola in costruzione: ${formula}`, dimensione: 68, grassetto: true });

@@ -8,7 +8,7 @@ import { Audio } from 'comune/audio.js';
 import { Impostazioni } from 'comune/impostazioni.js';
 import { spostaVerticale } from 'comune/xr-supporto.js';
 // Numero di versione mostrato nel pannello Impostazioni: serve a capire se il visore ha caricato l'ultima pubblicazione
-const VERSIONE = 11;
+const VERSIONE = 12;
 import { Pulsante3D, premi } from 'comune/menu.js';
 import { ModuloMolecole } from './molecole.js';
 import { ModuloTavola } from './tavola.js';
@@ -85,9 +85,18 @@ titolo.imposta([
   { testo: 'Mani: pizzica pollice+indice (premi/afferra), pollice+medio (blocchi)', dimensione: 34, colore: '#7dffc0' },
 ]);
 titolo.mesh.position.set(0, 1.95, -1.1); gruppoMenu.add(titolo.mesh);
-pulsante('1  Costruisci la molecola', 0.7, 0.16, new THREE.Vector3(0, 1.55, -1.0), () => apriMolecole('H2O'), gruppoMenu);
-pulsante('2  Tavola periodica', 0.7, 0.16, new THREE.Vector3(0, 1.35, -1.0), () => apriTavola(), gruppoMenu);
-pulsante('3  DNA', 0.7, 0.16, new THREE.Vector3(0, 1.15, -1.0), () => apriDna(), gruppoMenu);
+// Stelle migliori ottenute nelle sfide (salvate nel browser): si vedono nel menu
+const prog = new Impostazioni('scienze-vr-progressi', { molecole: 0, tavola: 0, dna: 0 });
+const stelleTxt = (n) => '★'.repeat(n) + '☆'.repeat(3 - n);
+const stelleDa = (punti, max) => (punti >= max * 0.9 ? 3 : punti >= max * 0.6 ? 2 : punti >= max * 0.3 ? 1 : 0);
+const btnMenu = {};
+btnMenu.molecole = pulsante('1  Costruisci la molecola', 0.7, 0.16, new THREE.Vector3(0, 1.55, -1.0), () => apriMolecole('H2O'), gruppoMenu);
+btnMenu.tavola = pulsante('2  Tavola periodica', 0.7, 0.16, new THREE.Vector3(0, 1.35, -1.0), () => apriTavola(), gruppoMenu);
+btnMenu.dna = pulsante('3  DNA', 0.7, 0.16, new THREE.Vector3(0, 1.15, -1.0), () => apriDna(), gruppoMenu);
+const ETICHETTE_MENU = { molecole: '1  Molecole', tavola: '2  Tavola periodica', dna: '3  DNA' };
+function aggiornaMenu() { for (const k of Object.keys(btnMenu)) btnMenu[k].imposta('normale', `${ETICHETTE_MENU[k]}   ${stelleTxt(prog.get(k))}`); }
+function registraStelle(chiave, stelle) { if (stelle > prog.get(chiave)) { prog.imposta(chiave, stelle); aggiornaMenu(); } }
+aggiornaMenu();
 // Il gruppo menu ruota/si sposta attorno al proprio centro: origine al centro dei pulsanti
 gruppoMenu.position.set(0, 1.55, -1.05);
 for (const f of gruppoMenu.children) f.position.sub(gruppoMenu.position);
@@ -97,10 +106,16 @@ const gruppoMol = new THREE.Group(); scena.add(gruppoMol);
 gruppoMol.add(pannello.mesh);
 const bottoniMolecola = {};
 Object.keys(molecoleNote).filter((k) => !k.startsWith('_')).forEach((formula, i) => {
-  bottoniMolecola[formula] = pulsante(formula.replace(/\d/g, (c) => '₀₁₂₃₄₅₆₇₈₉'[c]), 0.2, 0.12,
-    new THREE.Vector3(-0.45 + i * 0.22, 0.85, -0.55), () => apriMolecole(formula), gruppoMol, -0.6);
+  const riga = i < 5 ? 0 : 1, col = i % 5;   // due file di 5 pulsanti
+  bottoniMolecola[formula] = pulsante(formula.replace(/\d/g, (c) => '₀₁₂₃₄₅₆₇₈₉'[c]), 0.18, 0.12,
+    new THREE.Vector3(-0.55 + col * 0.2, 0.85 + riga * 0.14, -0.55 - riga * 0.05), () => apriMolecole(formula), gruppoMol, -0.6);
 });
 pulsante('Ricomincia', 0.28, 0.12, new THREE.Vector3(0.5, 0.85, -0.55), () => modulo.avvia(null), gruppoMol, -0.6);
+const btnSfidaMol = pulsante('Sfida', 0.24, 0.12, new THREE.Vector3(0.52, 0.99, -0.6), () => {
+  if (modulo.sfida) { modulo.fermaSfida(); btnSfidaMol.imposta('normale', 'Sfida'); }
+  else { modulo.avviaSfida(5); btnSfidaMol.imposta('selezionato', 'Sfida: esci'); for (const b of Object.values(bottoniMolecola)) b.imposta('normale'); }
+}, gruppoMol, -0.6);
+modulo.alFineSfida = (punti, max) => { registraStelle('molecole', stelleDa(punti, max)); btnSfidaMol.imposta('normale', 'Sfida'); };
 pulsante('Ricentra', 0.24, 0.12, new THREE.Vector3(-0.78, 0.85, -0.55), () => controller.richiediRicentra(), gruppoMol, -0.6);
 pulsante('Menu', 0.2, 0.12, new THREE.Vector3(0.78, 0.85, -0.55), () => apriMenu(), gruppoMol, -0.6);
 
@@ -108,12 +123,26 @@ pulsante('Menu', 0.2, 0.12, new THREE.Vector3(0.78, 0.85, -0.55), () => apriMenu
 const gruppoTav = new THREE.Group(); scena.add(gruppoTav);
 pulsante('Menu', 0.2, 0.12, new THREE.Vector3(0.78, 0.85, -0.55), () => apriMenu(), gruppoTav, -0.6);
 pulsante('Ricentra', 0.24, 0.12, new THREE.Vector3(0.5, 0.85, -0.55), () => controller.richiediRicentra(), gruppoTav, -0.6);
+const btnFamiglie = pulsante('Famiglie', 0.3, 0.12, new THREE.Vector3(-0.1, 0.85, -0.55), () => {
+  if (tavola.sfida) return;
+  const cat = tavola.prossimaFamiglia(); btnFamiglie.imposta(cat ? 'selezionato' : 'normale', 'Famiglie');
+}, gruppoTav, -0.6);
+const btnSfidaTav = pulsante('Sfida', 0.22, 0.12, new THREE.Vector3(0.2, 0.85, -0.55), () => {
+  if (tavola.sfida) { tavola.fermaSfida(); btnSfidaTav.imposta('normale', 'Sfida'); }
+  else { tavola.avviaSfida(5); btnSfidaTav.imposta('selezionato', 'Esci'); btnFamiglie.imposta('normale', 'Famiglie'); }
+}, gruppoTav, -0.6);
+tavola.alFineSfida = (punti, max) => { registraStelle('tavola', stelleDa(punti, max)); btnSfidaTav.imposta('normale', 'Sfida'); };
 tavola.celle.forEach((c) => tutti.push(c));   // anche le caselle si premono col raggio
 
 // Gruppo "DNA": pannello e pulsanti
 const gruppoDna = new THREE.Group(); scena.add(gruppoDna);
 gruppoDna.add(pannelloDna.mesh);
 pulsante('Nuova sequenza', 0.36, 0.12, new THREE.Vector3(0.45, 0.65, -0.5), () => dna.avvia(), gruppoDna, -0.6);
+const btnModoDna = pulsante('Replicazione', 0.4, 0.12, new THREE.Vector3(-0.32, 0.65, -0.5), () => {
+  const nuovo = dna.modo === 'replicazione' ? 'trascrizione' : 'replicazione';
+  btnModoDna.imposta('normale', nuovo === 'replicazione' ? 'Replicazione' : 'Trascrizione RNA'); dna.avvia(nuovo);
+}, gruppoDna, -0.6);
+dna.alCompleta = (modo, stelle) => registraStelle('dna', stelle);
 pulsante('Menu', 0.2, 0.12, new THREE.Vector3(0.78, 0.65, -0.5), () => apriMenu(), gruppoDna, -0.6);
 pulsante('Ricentra', 0.24, 0.12, new THREE.Vector3(0.1, 0.65, -0.5), () => controller.richiediRicentra(), gruppoDna, -0.6);
 
@@ -200,13 +229,15 @@ aggiungiRotellina(gruppoDna, new THREE.Vector3(0.96, 0.65, -0.5), -0.6);
 
 function apriDna() {
   gruppoMenu.visible = false; gruppoMol.visible = false; gruppoTav.visible = false; gruppoDna.visible = true;
-  modulo.pulisci(); tavola.mostra(false); dna.avvia();
+  modulo.pulisci(); tavola.mostra(false); dna.avvia(dna.modo);
+  btnModoDna.imposta('normale', dna.modo === 'replicazione' ? 'Replicazione' : 'Trascrizione RNA');
   vistaDesktop?.impostaVista(new THREE.Vector3(0, 1.4, -0.8), 1.4, 0, 0.12);
   guida('<b>DNA.</b> Trascina i pezzi sulla base giusta: A con T, C con G. Puoi riprenderli per staccarli. Trascina lo sfondo per ruotare. Visore: grilletto o presa per afferrare.');
 }
 function apriTavola() {
   gruppoMenu.visible = false; gruppoMol.visible = false; gruppoTav.visible = true; gruppoDna.visible = false;
   modulo.pulisci(); dna.pulisci(); tavola.mostra(true);
+  btnSfidaTav.imposta('normale', 'Sfida'); btnFamiglie.imposta('normale', 'Famiglie');
   vistaDesktop?.impostaVista(new THREE.Vector3(0, 1.55, -1.0), 1.9, 0, 0.1);
   guida('<b>Tavola periodica.</b> Clicca un elemento per vedere le informazioni e il modello dell\'atomo (gli elettroni esterni sono arancioni). Visore: punta e premi il grilletto.');
 }
@@ -215,6 +246,7 @@ function apriMolecole(formula) {
   vistaDesktop?.impostaVista(new THREE.Vector3(0, 1.3, -0.7), 1.35, 0, 0.23);
   guida('<b>Costruisci la molecola.</b> Trascina un atomo e avvicinalo a un altro per legarli; trascina lo sfondo per ruotare, rotella per lo zoom. Visore: grilletto o presa per afferrare.');
   for (const [f, b] of Object.entries(bottoniMolecola)) b.imposta(f === formula ? 'selezionato' : 'normale');
+  modulo.sfida = null; btnSfidaMol.imposta('normale', 'Sfida');
   modulo.avvia(null, undefined, formula);
 }
 function apriMenu() {

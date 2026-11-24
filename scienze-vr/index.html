@@ -17,25 +17,25 @@
 {
  "imports": {
   "three": "../comune/lib/three/three.module.min.js",
-  "comune/audio.js": "../comune/audio.js?v=11",
-  "../comune/audio.js": "../comune/audio.js?v=11",
-  "comune/controller.js": "../comune/controller.js?v=11",
-  "../comune/controller.js": "../comune/controller.js?v=11",
-  "comune/impostazioni.js": "../comune/impostazioni.js?v=11",
-  "../comune/impostazioni.js": "../comune/impostazioni.js?v=11",
-  "comune/mani.js": "../comune/mani.js?v=11",
-  "../comune/mani.js": "../comune/mani.js?v=11",
-  "comune/menu.js": "../comune/menu.js?v=11",
-  "../comune/menu.js": "../comune/menu.js?v=11",
-  "comune/pannello.js": "../comune/pannello.js?v=11",
-  "../comune/pannello.js": "../comune/pannello.js?v=11",
-  "comune/xr-supporto.js": "../comune/xr-supporto.js?v=11",
-  "../comune/xr-supporto.js": "../comune/xr-supporto.js?v=11",
-  "./dna.js": "./dna.js?v=11",
-  "./laboratorio.js": "./laboratorio.js?v=11",
-  "./main.js": "./main.js?v=11",
-  "./molecole.js": "./molecole.js?v=11",
-  "./tavola.js": "./tavola.js?v=11",
+  "comune/audio.js": "../comune/audio.js?v=12",
+  "../comune/audio.js": "../comune/audio.js?v=12",
+  "comune/controller.js": "../comune/controller.js?v=12",
+  "../comune/controller.js": "../comune/controller.js?v=12",
+  "comune/impostazioni.js": "../comune/impostazioni.js?v=12",
+  "../comune/impostazioni.js": "../comune/impostazioni.js?v=12",
+  "comune/mani.js": "../comune/mani.js?v=12",
+  "../comune/mani.js": "../comune/mani.js?v=12",
+  "comune/menu.js": "../comune/menu.js?v=12",
+  "../comune/menu.js": "../comune/menu.js?v=12",
+  "comune/pannello.js": "../comune/pannello.js?v=12",
+  "../comune/pannello.js": "../comune/pannello.js?v=12",
+  "comune/xr-supporto.js": "../comune/xr-supporto.js?v=12",
+  "../comune/xr-supporto.js": "../comune/xr-supporto.js?v=12",
+  "./dna.js": "./dna.js?v=12",
+  "./laboratorio.js": "./laboratorio.js?v=12",
+  "./main.js": "./main.js?v=12",
+  "./molecole.js": "./molecole.js?v=12",
+  "./tavola.js": "./tavola.js?v=12",
   "comune/": "../comune/"
  }
 }
@@ -49,6 +49,12 @@
 </div>
 <div id="pulsanti"></div>
 <button id="impostazioni" title="Impostazioni">⚙ Impostazioni</button>
-<script type="module" src="./main.js?v=11"></script>
+<!-- Se qualcosa non parte (es. file vecchi in cache sul visore) il motivo compare qui, in alto, prima di entrare in VR -->
+<script>
+  function mostraErrore(t) { var g = document.getElementById('guida'); g.style.background = 'rgba(150,30,30,.95)'; g.innerHTML = '<b>Errore:</b> ' + t + ' &nbsp; <a style="color:#fff" href="?r=' + Date.now() + '">Ricarica senza cache</a>'; }
+  addEventListener('error', function (e) { mostraErrore(e.message || 'caricamento non riuscito'); });
+  addEventListener('unhandledrejection', function (e) { mostraErrore(String(e.reason && e.reason.message || e.reason)); });
+</script>
+<script type="module" src="./main.js?v=12" onerror="mostraErrore('main.js non caricato')"></script>
 </body>
 </html>
