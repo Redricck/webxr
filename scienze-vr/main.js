@@ -8,9 +8,10 @@ import { Audio } from 'comune/audio.js';
 import { Impostazioni } from 'comune/impostazioni.js';
 import { spostaVerticale } from 'comune/xr-supporto.js';
 // Numero di versione mostrato nel pannello Impostazioni: serve a capire se il visore ha caricato l'ultima pubblicazione
-const VERSIONE = 12;
+const VERSIONE = 13;
 import { Pulsante3D, premi } from 'comune/menu.js';
 import { ModuloMolecole } from './molecole.js';
+import { ModuloLegami, CASI as CASI_LEGAMI } from './legami.js';
 import { ModuloTavola } from './tavola.js';
 import { ModuloDna } from './dna.js';
 import { creaLaboratorio } from './laboratorio.js';
@@ -55,10 +56,11 @@ const dna = new ModuloDna(scena, datiDna, pannelloDna);
 
 // --- Modulo tavola periodica ---
 const tavola = new ModuloTavola(scena, datiTavola);
+const legami = new ModuloLegami(scena, datiTavola);   // vista "Legami" dentro la tavola periodica
 
 // --- Audio: musica ambient + effetti (si sblocca al primo gesto dell'utente) ---
 const audio = new Audio();
-modulo.suoni = audio; dna.suoni = audio; tavola.suoni = audio;
+modulo.suoni = audio; dna.suoni = audio; tavola.suoni = audio; legami.suoni = audio;
 for (const ev of ['pointerdown', 'keydown', 'click']) addEventListener(ev, () => audio.sblocca());   // desktop e pulsante "Entra in VR"
 
 const guida = (html) => { document.getElementById('guida').innerHTML = html; };   // testo di aiuto per il desktop
@@ -132,6 +134,31 @@ const btnSfidaTav = pulsante('Sfida', 0.22, 0.12, new THREE.Vector3(0.2, 0.85, -
   else { tavola.avviaSfida(5); btnSfidaTav.imposta('selezionato', 'Esci'); btnFamiglie.imposta('normale', 'Famiglie'); }
 }, gruppoTav, -0.6);
 tavola.alFineSfida = (punti, max) => { registraStelle('tavola', stelleDa(punti, max)); btnSfidaTav.imposta('normale', 'Sfida'); };
+// Vista "Legami": come si legano gli atomi (covalente e ionico). Pulsante nella barra + riga di casi sopra la barra
+const btnLegami = pulsante('Legami', 0.26, 0.12, new THREE.Vector3(-0.42, 0.85, -0.55), () => { if (legami.attivo) chiudiLegami(); else apriLegami('H2'); }, gruppoTav, -0.6);
+const gruppoCasi = new THREE.Group(); gruppoTav.add(gruppoCasi); gruppoCasi.visible = false;
+const bottoniCasi = {};
+Object.entries(CASI_LEGAMI).forEach(([k, c], i) => {
+  bottoniCasi[k] = pulsante(c.formula, 0.19, 0.12, new THREE.Vector3(-0.5 + i * 0.21, 0.99, -0.6), () => apriLegami(k), gruppoCasi, -0.6);
+});
+pulsante('Ricomincia', 0.26, 0.12, new THREE.Vector3(0.62, 0.99, -0.6), () => legami.avvia(legami.caso), gruppoCasi, -0.6);
+function apriLegami(caso) {
+  tavola.mostra(true);
+  for (const o of [tavola.tabella, tavola.atomo, tavola.pannello.mesh]) o.visible = false;
+  btnFamiglie.mesh.visible = false; btnSfidaTav.mesh.visible = false; gruppoCasi.visible = true;
+  btnLegami.imposta('selezionato', 'Tavola');
+  for (const [k, b] of Object.entries(bottoniCasi)) b.imposta(k === caso ? 'selezionato' : 'normale');
+  legami.mostra(true); legami.avvia(caso);
+  vistaDesktop?.impostaVista(new THREE.Vector3(0, 1.3, -0.8), 1.2, 0, 0.1);
+  guida('<b>Legami.</b> Prendi gli atomi (nucleo e elettroni esterni arancioni), avvicinali e lasciali: guarda cosa fanno gli elettroni. Scegli il caso con i pulsanti in basso.');
+}
+function chiudiLegami() {
+  legami.mostra(false);
+  for (const o of [tavola.tabella, tavola.atomo, tavola.pannello.mesh]) o.visible = true;
+  btnFamiglie.mesh.visible = true; btnSfidaTav.mesh.visible = true; gruppoCasi.visible = false;
+  btnLegami.imposta('normale', 'Legami');
+  vistaDesktop?.impostaVista(new THREE.Vector3(0, 1.55, -1.0), 1.9, 0, 0.1);
+}
 tavola.celle.forEach((c) => tutti.push(c));   // anche le caselle si premono col raggio
 
 // Gruppo "DNA": pannello e pulsanti
@@ -212,8 +239,8 @@ function posizionaPannelloImp() {
 for (const f of gruppoImp.children) f.position.sub(new THREE.Vector3(0, 1.4, Z_IMP));
 // Rotellina: e' l'ULTIMO pulsante di ogni schermata (menu, molecole, tavola, DNA), vicino agli altri. Si crea con aggiungiRotellina().
 function apriImpostazioni() { gruppoImp.visible = !gruppoImp.visible; if (gruppoImp.visible) posizionaPannelloImp(); }
-function aggiungiRotellina(gruppo, pos, inclina = 0, lato = 0.12) {
-  const r = new Pulsante3D('', lato, lato, apriImpostazioni, 'ingranaggio');
+function aggiungiRotellina(gruppo, pos, inclina = 0, lato = 0.12, testo = '') {
+  const r = new Pulsante3D(testo, testo ? 0.5 : lato, testo ? 0.14 : lato, apriImpostazioni, 'ingranaggio');
   r.mesh.position.copy(pos); r.mesh.rotation.x = inclina;
   gruppo.add(r.mesh); tutti.push(r.mesh);
   return r;
@@ -222,12 +249,13 @@ function aggiungiRotellina(gruppo, pos, inclina = 0, lato = 0.12) {
 document.getElementById('impostazioni')?.addEventListener('click', apriImpostazioni);
 
 // Rotellina come ultimo pulsante di ogni schermata
-aggiungiRotellina(gruppoMenu, new THREE.Vector3(0, 0.92, -1.0).sub(gruppoMenu.position), 0, 0.16);
+aggiungiRotellina(gruppoMenu, new THREE.Vector3(0, 0.93, -1.0).sub(gruppoMenu.position), 0, 0.16, 'Impostazioni');   // nel menu: icona + parola
 aggiungiRotellina(gruppoMol, new THREE.Vector3(0.96, 0.85, -0.55), -0.6);
 aggiungiRotellina(gruppoTav, new THREE.Vector3(0.96, 0.85, -0.55), -0.6);
 aggiungiRotellina(gruppoDna, new THREE.Vector3(0.96, 0.65, -0.5), -0.6);
 
 function apriDna() {
+  if (legami.attivo) chiudiLegami();
   gruppoMenu.visible = false; gruppoMol.visible = false; gruppoTav.visible = false; gruppoDna.visible = true;
   modulo.pulisci(); tavola.mostra(false); dna.avvia(dna.modo);
   btnModoDna.imposta('normale', dna.modo === 'replicazione' ? 'Replicazione' : 'Trascrizione RNA');
@@ -235,6 +263,7 @@ function apriDna() {
   guida('<b>DNA.</b> Trascina i pezzi sulla base giusta: A con T, C con G. Puoi riprenderli per staccarli. Trascina lo sfondo per ruotare. Visore: grilletto o presa per afferrare.');
 }
 function apriTavola() {
+  if (legami.attivo) chiudiLegami();
   gruppoMenu.visible = false; gruppoMol.visible = false; gruppoTav.visible = true; gruppoDna.visible = false;
   modulo.pulisci(); dna.pulisci(); tavola.mostra(true);
   btnSfidaTav.imposta('normale', 'Sfida'); btnFamiglie.imposta('normale', 'Famiglie');
@@ -242,6 +271,7 @@ function apriTavola() {
   guida('<b>Tavola periodica.</b> Clicca un elemento per vedere le informazioni e il modello dell\'atomo (gli elettroni esterni sono arancioni). Visore: punta e premi il grilletto.');
 }
 function apriMolecole(formula) {
+  if (legami.attivo) chiudiLegami();
   gruppoMenu.visible = false; gruppoMol.visible = true; gruppoTav.visible = false; gruppoDna.visible = false; tavola.mostra(false); dna.pulisci();
   vistaDesktop?.impostaVista(new THREE.Vector3(0, 1.3, -0.7), 1.35, 0, 0.23);
   guida('<b>Costruisci la molecola.</b> Trascina un atomo e avvicinalo a un altro per legarli; trascina lo sfondo per ruotare, rotella per lo zoom. Visore: grilletto o presa per afferrare.');
@@ -250,6 +280,7 @@ function apriMolecole(formula) {
   modulo.avvia(null, undefined, formula);
 }
 function apriMenu() {
+  if (legami.attivo) chiudiLegami();
   modulo.pulisci(); tavola.mostra(false); dna.pulisci();
   gruppoMol.visible = false; gruppoTav.visible = false; gruppoDna.visible = false; gruppoMenu.visible = true;
   vistaDesktop?.impostaVista(new THREE.Vector3(0, 1.4, -1.0), 1.5, 0, 0.1);
@@ -259,9 +290,9 @@ let vistaDesktop = null;   // assegnata sotto, dopo aver creato i controlli desk
 apriMenu();
 
 // Si puo' afferrare solo gli atomi; i pulsanti si premono (non si afferrano).
-const afferrabili = () => [...modulo.afferrabili, ...dna.afferrabili];
-const alAfferra = (o) => (dna.pezzi.includes(o) ? dna.alAfferra(o) : modulo.alAfferra(o));
-const alRilascio = (o) => (dna.pezzi.includes(o) ? dna.alRilascio(o) : modulo.alRilascio(o));
+const afferrabili = () => [...modulo.afferrabili, ...dna.afferrabili, ...legami.afferrabili];
+const alAfferra = (o) => (legami.atomi.includes(o) ? legami.alAfferra(o) : dna.pezzi.includes(o) ? dna.alAfferra(o) : modulo.alAfferra(o));
+const alRilascio = (o) => (legami.atomi.includes(o) ? legami.alRilascio(o) : dna.pezzi.includes(o) ? dna.alRilascio(o) : modulo.alRilascio(o));
 const alPremi = (mesh) => {
   audio.sblocca();
   if (!mesh.userData.nessunSuono && !mesh.userData.elemento) audio.suono('click');   // le caselle della tavola hanno il loro suono
@@ -333,11 +364,11 @@ function aggiornaStatoMani() {
   const testo = righe.map((r) => r[0]).join('|');
   if (testo !== ultimoStatoMani) { ultimoStatoMani = testo; statoMani.imposta(righe.map(([t, c]) => ({ testo: t, dimensione: 40, colore: c }))); }
 }
-renderer.setAnimationLoop((t, frame) => { if (gruppoImp.visible) aggiornaStatoMani(); controller.aggiorna(frame); visuali.aggiorna(frame); modulo.aggiorna(); tavola.aggiorna(t / 1000); dna.aggiorna(t / 1000); renderer.render(scena, camera); });
+renderer.setAnimationLoop((t, frame) => { if (gruppoImp.visible) aggiornaStatoMani(); controller.aggiorna(frame); visuali.aggiorna(frame); modulo.aggiorna(); tavola.aggiorna(t / 1000); legami.aggiorna(t / 1000); dna.aggiorna(t / 1000); renderer.render(scena, camera); });
 addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
 });
 
 // Per i test automatici da console / script (non serve all'utente).
-window.__scienzeVr = { audio, titolo, gruppoMenu, bloccoDi, grandi: () => [...schede, titolo.mesh, tavola.atomo, dna.helice], modulo, tavola, dna, apriDna, camera, scena, THREE, tutti, apriMolecole, apriMenu, apriTavola };
+window.__scienzeVr = { audio, titolo, gruppoMenu, bloccoDi, grandi: () => [...schede, titolo.mesh, tavola.atomo, dna.helice], modulo, tavola, dna, apriDna, camera, scena, THREE, tutti, apriMolecole, apriMenu, apriTavola, apriLegami, legami };

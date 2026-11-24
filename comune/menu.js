@@ -47,17 +47,21 @@ export class Pulsante3D {
     x.lineWidth = 6; x.strokeStyle = bordo; x.globalAlpha = 0.85; x.stroke(); x.globalAlpha = 1;
     // Riflesso chiaro nella meta' alta, per dare volume
     x.fillStyle = 'rgba(255,255,255,0.14)'; x.beginPath(); x.roundRect(12, 10, canvas.width - 24, canvas.height * 0.42, [36, 36, 12, 12]); x.fill();
-    if (this.icona === 'ingranaggio') { this._ingranaggio(x, canvas.width / 2, canvas.height / 2, canvas.height * 0.36); this.texture.needsUpdate = true; return; }
+    if (this.icona === 'ingranaggio' && !this.testo) { this._ingranaggio(x, canvas.width / 2, canvas.height / 2, canvas.height * 0.36); this.texture.needsUpdate = true; return; }
+    // Icona + testo: la rotellina disegnata prima della parola
+    const spazio = this.icona === 'ingranaggio' ? canvas.height * 0.95 : 0;
+    if (spazio) this._ingranaggio(x, canvas.height * 0.62, canvas.height / 2, canvas.height * 0.27);
     x.fillStyle = this.stato === 'disattivo' ? '#b4bcd2' : '#fff';
     x.textAlign = 'center'; x.textBaseline = 'middle';
+    const centroX = (spazio + canvas.width) / 2, largaMax = canvas.width - spazio;
     const righe = this.testo.split('\n');
     let dim = Math.min(76, (canvas.height * 0.7) / righe.length);
     x.font = `bold ${dim}px ${FONT}`;
     x.shadowColor = 'rgba(0,0,0,0.35)'; x.shadowBlur = 6; x.shadowOffsetY = 3;
     // Riduce la scritta finche' la riga piu' lunga entra nel pulsante
     const larga = Math.max(...righe.map((r) => x.measureText(r).width));
-    if (larga > canvas.width * 0.9) { dim *= canvas.width * 0.9 / larga; x.font = `bold ${dim}px ${FONT}`; }
-    righe.forEach((r, i) => x.fillText(r, canvas.width / 2, canvas.height / 2 + (i - (righe.length - 1) / 2) * dim * 1.2));
+    if (larga > largaMax * 0.9) { dim *= largaMax * 0.9 / larga; x.font = `bold ${dim}px ${FONT}`; }
+    righe.forEach((r, i) => x.fillText(r, centroX, canvas.height / 2 + (i - (righe.length - 1) / 2) * dim * 1.2));
     this.texture.needsUpdate = true;
   }
 }

@@ -28,7 +28,7 @@ const FAMIGLIE = {
   'attinide': 'Metalli pesanti, spesso radioattivi (uranio, plutonio).',
 };
 
-const colore = (cat) => COLORI[cat.replace(' (previsto)', '')] || '#888';
+export const colore = (cat) => COLORI[cat.replace(' (previsto)', '')] || '#888';
 
 export class ModuloTavola {
   /** @param scena, dati = contenuto di dati/tavola.json */

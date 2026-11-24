@@ -55,3 +55,6 @@ La rotellina è l'ultimo pulsante di ogni schermata (sotto "3 DNA" nel menu, in 
 - Tavola: "Famiglie" evidenzia una famiglia e la spiega; "Sfida" = 5 domande da risolvere toccando le caselle.
 - DNA: il pulsante a sinistra passa da Replicazione a Trascrizione RNA (A→U, T→A, C→G, G→C). Stelle in base agli errori.
 - Le stelle migliori compaiono nel menu.
+
+## Legami (v13)
+Tavola periodica > pulsante "Legami": scegli H₂, HCl, H₂O, NaCl o MgO, prendi gli atomi, avvicinali e lasciali. Covalente: gli elettroni esterni diventano una coppia condivisa. Ionico: l'elettrone passa all'altro atomo e nascono gli ioni. "Ricomincia" rimette gli atomi sul bancone, "Tavola" torna alla tavola periodica.
