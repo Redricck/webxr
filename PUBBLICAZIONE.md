@@ -34,4 +34,4 @@ Attendi circa un minuto e ricarica la pagina.
 In `C:\Users\Samsung\webXR`: `python -m http.server 8000` e apri `http://localhost:8000/scienze-vr/`. (Non aprire il file con doppio clic: i moduli richiedono un server.)
 
 ## Prima di ogni pubblicazione: numero di versione
-`python strumenti/aggiorna-versione.py scienze-vr N` (N = versione precedente + 1). Aggiorna il numero mostrato nelle Impostazioni e aggiunge `?v=N` ai file nell'importmap, così il visore non usa copie vecchie.
+`python strumenti/aggiorna-versione.py scienze-vr 1.N` (numeri in stile software: 1.13, 1.14, ...; N = precedente + 1). Aggiorna la versione mostrata nel menu, nelle Impostazioni e in Info, e aggiunge `?v=1.N` ai file nell'importmap, così il visore non usa copie vecchie.

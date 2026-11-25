@@ -43,3 +43,6 @@ Audio: `comune/audio.js`, tutto generato in codice (musica ambient + effetti), s
 
 ## Stato dei moduli di scienze-vr
 - `molecole.js` (modulo 1), `tavola.js` (modulo 2), `dna.js` (modulo 3), `main.js` (menu VR e collegamento). Pulsanti 3D in `comune/menu.js`.
+
+## Versione e autore (v1.13)
+Versione in stile software "1.N" (`VERSIONE` in `scienze-vr/main.js`, aggiornata da `strumenti/aggiorna-versione.py scienze-vr 1.N`). Autore: Riccardo (solo il nome). Riga discreta "Scienze VR · v1.13 · di Riccardo" in fondo al menu VR, nel pannello Impostazioni e in basso a sinistra nella pagina desktop; pulsante "Info" nelle Impostazioni (autore, versione, licenze).

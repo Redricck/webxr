@@ -8,7 +8,9 @@ import { Audio } from 'comune/audio.js';
 import { Impostazioni } from 'comune/impostazioni.js';
 import { spostaVerticale } from 'comune/xr-supporto.js';
 // Numero di versione mostrato nel pannello Impostazioni: serve a capire se il visore ha caricato l'ultima pubblicazione
-const VERSIONE = 13;
+const VERSIONE = '1.13';
+const AUTORE = 'Riccardo';
+const RIGA_INFO = `Scienze VR · v${VERSIONE} · di ${AUTORE}`;   // unica fonte per menu, impostazioni e pagina
 import { Pulsante3D, premi } from 'comune/menu.js';
 import { ModuloMolecole } from './molecole.js';
 import { ModuloLegami, CASI as CASI_LEGAMI } from './legami.js';
@@ -217,8 +219,9 @@ const cambiaAlza = (d) => { const v = Math.round((imp.get('alza') + d) * 100) / 
 pressImp('▼', 0.1, -0.2, 4, () => cambiaAlza(-0.05)); bImp.alza = pressImp('Altezza', 0.3, 0, 4, () => {}); pressImp('▲', 0.1, 0.2, 4, () => cambiaAlza(0.05));
 bImp.distanza = pressImp('Distanza', 0.5, 0, 5, () => { const o = Object.keys(DISTANZE); imp.imposta('distanza', o[(o.indexOf(imp.get('distanza')) + 1) % o.length]); aggiornaImp(); });
 bImp.mani = pressImp('Input', 0.5, 0, 6, () => { const o = ['auto', 'mani', 'controller']; imp.imposta('input', o[(o.indexOf(imp.get('input')) + 1) % 3]); aggiornaImp(); });
-pressImp('Ricentra ora', 0.24, -0.13, 7, () => controller.richiediRicentra());
-pressImp('Chiudi', 0.24, 0.13, 7, () => { gruppoImp.visible = false; });
+pressImp('Ricentra', 0.18, -0.2, 7, () => controller.richiediRicentra());
+pressImp('Info', 0.18, 0, 7, () => { pannelloInfo.mesh.visible = !pannelloInfo.mesh.visible; });
+pressImp('Chiudi', 0.18, 0.2, 7, () => { gruppoImp.visible = false; });
 // Il pannello ruota/si sposta attorno al proprio centro (si puo' prendere con la presa laterale)
 // Sfondo scuro del pannello (si puo' afferrare ovunque con la presa laterale per spostarlo)
 const sfondoImp = new THREE.Mesh(new THREE.PlaneGeometry(0.58, 1.42), new THREE.MeshBasicMaterial({ color: 0x0b1220, transparent: true, opacity: 0.8 }));
@@ -237,6 +240,16 @@ function posizionaPannelloImp() {
   gruppoImp.scale.setScalar(vr ? 1.0 : 0.8);   // in VR grande, per leggerlo bene
 }
 for (const f of gruppoImp.children) f.position.sub(new THREE.Vector3(0, 1.4, Z_IMP));
+// Pannello "Informazioni" (autore, versione, licenze): si apre a destra del pannello Impostazioni con il pulsante Info
+const pannelloInfo = new PannelloTesto(0.9, 0.62, 1024);
+pannelloInfo.imposta([
+  { testo: 'Scienze VR', dimensione: 64, grassetto: true, colore: '#ffd166' },
+  { testo: `Versione ${VERSIONE}`, dimensione: 44, grassetto: true },
+  { testo: `Autore: ${AUTORE}`, dimensione: 44, grassetto: true },
+  { testo: 'App didattica di realtà virtuale per la scuola, fatta con WebXR e three.js. Nessun tracciamento e nessun account: le impostazioni restano solo in questo browser.', dimensione: 34, colore: '#cfe2ff' },
+  { testo: 'Licenze: three.js (MIT); modelli dei controller di webxr-input-profiles (MIT); dati della tavola periodica da Periodic-Table-JSON (fonti: Wikipedia, CC BY-SA).', dimensione: 32, colore: '#9ecbff' },
+]);
+pannelloInfo.mesh.position.set(0.82, 0, 0); pannelloInfo.mesh.visible = false; gruppoImp.add(pannelloInfo.mesh);
 // Rotellina: e' l'ULTIMO pulsante di ogni schermata (menu, molecole, tavola, DNA), vicino agli altri. Si crea con aggiungiRotellina().
 function apriImpostazioni() { gruppoImp.visible = !gruppoImp.visible; if (gruppoImp.visible) posizionaPannelloImp(); }
 function aggiungiRotellina(gruppo, pos, inclina = 0, lato = 0.12, testo = '') {
@@ -250,6 +263,11 @@ document.getElementById('impostazioni')?.addEventListener('click', apriImpostazi
 
 // Rotellina come ultimo pulsante di ogni schermata
 aggiungiRotellina(gruppoMenu, new THREE.Vector3(0, 0.93, -1.0).sub(gruppoMenu.position), 0, 0.16, 'Impostazioni');   // nel menu: icona + parola
+// Riga discreta con nome, versione e autore in fondo al menu (e nella pagina, vedi index.html)
+const rigaInfoMenu = new PannelloTesto(0.62, 0.06, 768);
+rigaInfoMenu.imposta([{ testo: RIGA_INFO, dimensione: 30, colore: '#9ecbff' }]);
+rigaInfoMenu.mesh.position.set(0, 0.8, -1.0).sub(gruppoMenu.position); gruppoMenu.add(rigaInfoMenu.mesh);
+document.getElementById('info').textContent = RIGA_INFO;
 aggiungiRotellina(gruppoMol, new THREE.Vector3(0.96, 0.85, -0.55), -0.6);
 aggiungiRotellina(gruppoTav, new THREE.Vector3(0.96, 0.85, -0.55), -0.6);
 aggiungiRotellina(gruppoDna, new THREE.Vector3(0.96, 0.65, -0.5), -0.6);
@@ -352,14 +370,14 @@ let ultimoStatoMani = '';
 function aggiornaStatoMani() {
   const sess = renderer.xr.getSession && renderer.xr.getSession();
   let righe;
-  if (!sess) righe = [['Entra in VR per', '#ffffff'], ['verificare le mani', '#ffffff'], ['Versione ' + VERSIONE, '#9ecbff']];
+  if (!sess) righe = [['Entra in VR per', '#ffffff'], ['verificare le mani', '#ffffff'], [`v${VERSIONE} · di ${AUTORE}`, '#9ecbff']];
   else {
     const concesso = sess.enabledFeatures ? sess.enabledFeatures.includes('hand-tracking') : null;
     const src = [...sess.inputSources];
     const nMani = src.filter((i) => i.hand).length, nCtrl = src.length - nMani;
     righe = [[`Mani viste: ${nMani}  Controller: ${nCtrl}`, nMani ? '#7dff9b' : '#ffd37d'],
              [concesso === false ? 'Hand tracking NON concesso' : 'Hand tracking: concesso', concesso === false ? '#ff8080' : '#ffffff'],
-             [nMani ? 'Pizzica indice+pollice' : 'Mostra le mani al visore', '#ffffff'], ['Versione ' + VERSIONE, '#9ecbff']];
+             [nMani ? 'Pizzica indice+pollice' : 'Mostra le mani al visore', '#ffffff'], [`v${VERSIONE} · di ${AUTORE}`, '#9ecbff']];
   }
   const testo = righe.map((r) => r[0]).join('|');
   if (testo !== ultimoStatoMani) { ultimoStatoMani = testo; statoMani.imposta(righe.map(([t, c]) => ({ testo: t, dimensione: 40, colore: c }))); }

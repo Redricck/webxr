@@ -10,6 +10,7 @@
   #pulsanti { position: fixed; bottom: 16px; left: 0; right: 0; text-align: center; z-index: 2; }
   button { font-size: 18px; padding: 12px 20px; margin: 0 6px; border: 1px solid #a9d6ff; border-radius: 14px; background: linear-gradient(180deg, #4aa8ff, #2166d8); color: #fff; cursor: pointer; font-weight: 600; box-shadow: 0 4px 14px rgba(0,0,0,.35); }
   #impostazioni { position: fixed; top: 52px; right: 12px; z-index: 2; font-size: 15px; padding: 8px 14px; background: linear-gradient(180deg, #4a5470, #363e56); border-color: #6a7595; }
+  #info { position: fixed; left: 12px; bottom: 8px; z-index: 2; font-size: 12px; color: #9ecbff; opacity: .85; }
   button.secondario { background: #44506a; }
 </style>
 <!-- three.js e' copiata in comune/lib/three: niente CDN. "comune/" e' un prefisso per importare i moduli condivisi. -->
@@ -17,26 +18,26 @@
 {
  "imports": {
   "three": "../comune/lib/three/three.module.min.js",
-  "comune/audio.js": "../comune/audio.js?v=13",
-  "../comune/audio.js": "../comune/audio.js?v=13",
-  "comune/controller.js": "../comune/controller.js?v=13",
-  "../comune/controller.js": "../comune/controller.js?v=13",
-  "comune/impostazioni.js": "../comune/impostazioni.js?v=13",
-  "../comune/impostazioni.js": "../comune/impostazioni.js?v=13",
-  "comune/mani.js": "../comune/mani.js?v=13",
-  "../comune/mani.js": "../comune/mani.js?v=13",
-  "comune/menu.js": "../comune/menu.js?v=13",
-  "../comune/menu.js": "../comune/menu.js?v=13",
-  "comune/pannello.js": "../comune/pannello.js?v=13",
-  "../comune/pannello.js": "../comune/pannello.js?v=13",
-  "comune/xr-supporto.js": "../comune/xr-supporto.js?v=13",
-  "../comune/xr-supporto.js": "../comune/xr-supporto.js?v=13",
-  "./dna.js": "./dna.js?v=13",
-  "./laboratorio.js": "./laboratorio.js?v=13",
-  "./legami.js": "./legami.js?v=13",
-  "./main.js": "./main.js?v=13",
-  "./molecole.js": "./molecole.js?v=13",
-  "./tavola.js": "./tavola.js?v=13",
+  "comune/audio.js": "../comune/audio.js?v=1.13",
+  "../comune/audio.js": "../comune/audio.js?v=1.13",
+  "comune/controller.js": "../comune/controller.js?v=1.13",
+  "../comune/controller.js": "../comune/controller.js?v=1.13",
+  "comune/impostazioni.js": "../comune/impostazioni.js?v=1.13",
+  "../comune/impostazioni.js": "../comune/impostazioni.js?v=1.13",
+  "comune/mani.js": "../comune/mani.js?v=1.13",
+  "../comune/mani.js": "../comune/mani.js?v=1.13",
+  "comune/menu.js": "../comune/menu.js?v=1.13",
+  "../comune/menu.js": "../comune/menu.js?v=1.13",
+  "comune/pannello.js": "../comune/pannello.js?v=1.13",
+  "../comune/pannello.js": "../comune/pannello.js?v=1.13",
+  "comune/xr-supporto.js": "../comune/xr-supporto.js?v=1.13",
+  "../comune/xr-supporto.js": "../comune/xr-supporto.js?v=1.13",
+  "./dna.js": "./dna.js?v=1.13",
+  "./laboratorio.js": "./laboratorio.js?v=1.13",
+  "./legami.js": "./legami.js?v=1.13",
+  "./main.js": "./main.js?v=1.13",
+  "./molecole.js": "./molecole.js?v=1.13",
+  "./tavola.js": "./tavola.js?v=1.13",
   "comune/": "../comune/"
  }
 }
@@ -49,6 +50,7 @@
   Visore: grilletto o presa per afferrare.
 </div>
 <div id="pulsanti"></div>
+<div id="info"></div>
 <button id="impostazioni" title="Impostazioni">⚙ Impostazioni</button>
 <!-- Se qualcosa non parte (es. file vecchi in cache sul visore) il motivo compare qui, in alto, prima di entrare in VR -->
 <script>
@@ -56,6 +58,6 @@
   addEventListener('error', function (e) { mostraErrore(e.message || 'caricamento non riuscito'); });
   addEventListener('unhandledrejection', function (e) { mostraErrore(String(e.reason && e.reason.message || e.reason)); });
 </script>
-<script type="module" src="./main.js?v=13" onerror="mostraErrore('main.js non caricato')"></script>
+<script type="module" src="./main.js?v=1.13" onerror="mostraErrore('main.js non caricato')"></script>
 </body>
 </html>
